@@ -1,5 +1,9 @@
 package de.hpi.octopus;
 
+import java.io.BufferedReader;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
 import java.util.Scanner;
 
 import com.typesafe.config.Config;
@@ -46,8 +50,24 @@ public class OctopusMaster extends OctopusSystem {
 		String line = scanner.nextLine();
 		scanner.close();
 		
-		int attributes = Integer.parseInt(line);
-		
-		system.actorSelection("/user/" + Profiler.DEFAULT_NAME).tell(new Profiler.TaskMessage(attributes), ActorRef.noSender());
+		try {
+			system.actorSelection("/user/" + Profiler.DEFAULT_NAME).tell(new Profiler.TaskMessage(readCSV()), ActorRef.noSender());
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+
+	}
+
+	private static String[][] readCSV() throws FileNotFoundException, IOException {
+		BufferedReader br = new BufferedReader(new FileReader("./students.csv"));
+		String line = br.readLine();
+		String[][] table = new String[42][];
+		int count = 0;
+		while ((line = br.readLine()) != null) {
+			String[] row = line.split(";");
+			table[count] = row;
+			count++;
+		}
+		return table;
 	}
 }

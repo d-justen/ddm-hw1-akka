@@ -98,9 +98,9 @@ public class Worker extends AbstractActor {
 	}
 
 	private void handle(PasswordMessage message) throws UnsupportedEncodingException, NoSuchAlgorithmException {
-	    for (int i=10000; i<99999; i++) {
+	    for (int i=100000; i<999999; i++) {
 	        String hashed = hash(Integer.toString(i));
-	        if (hashed.equals(message.hash)) {
+	        if (hashed.equals(message.hash.toLowerCase())) {
 	            this.sender().tell(new Profiler.PasswordCompletionMessage(hashed, message.id), this.self());
 	            return;
             }

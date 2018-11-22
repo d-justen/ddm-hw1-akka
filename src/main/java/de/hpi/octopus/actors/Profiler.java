@@ -41,7 +41,7 @@ public class Profiler extends AbstractActor {
 	public static class TaskMessage implements Serializable {
 		private static final long serialVersionUID = -8330958742629706627L;
 		private TaskMessage() {}
-		private int attributes;
+		private String[][] table;
 	}
 
 	@Data @AllArgsConstructor @SuppressWarnings("unused")
@@ -103,7 +103,9 @@ public class Profiler extends AbstractActor {
 			this.log.error("The profiler actor can process only one task in its current implementation!");
 		
 		this.task = message;
-		this.assign(new Worker.PasswordMessage("5994471ABB01112AFCC18159F6CC74B4F511B99806DA59B3CAF5A9C173CACFC5", 0));
+		for (int i=0; i<message.table.length; i++) {
+			this.assign(new Worker.PasswordMessage(message.table[i][2], i));
+		}
 	}
 	
 	private void handle(PasswordCompletionMessage message) {

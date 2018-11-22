@@ -1,6 +1,9 @@
 package de.hpi.octopus.actors;
 
 import java.io.Serializable;
+import java.io.UnsupportedEncodingException;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 
 import akka.actor.AbstractActor;
 import akka.actor.Props;
@@ -11,8 +14,8 @@ import akka.cluster.Member;
 import akka.cluster.MemberStatus;
 import akka.event.Logging;
 import akka.event.LoggingAdapter;
+import akka.remote.EndpointManager;
 import de.hpi.octopus.OctopusMaster;
-import de.hpi.octopus.actors.Profiler.CompletionMessage;
 import de.hpi.octopus.actors.Profiler.RegistrationMessage;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -32,14 +35,14 @@ public class Worker extends AbstractActor {
 	////////////////////
 	// Actor Messages //
 	////////////////////
-	
+
 	@Data @AllArgsConstructor @SuppressWarnings("unused")
-	public static class WorkMessage implements Serializable {
-		private static final long serialVersionUID = -7643194361868862395L;
-		private WorkMessage() {}
-		private int[] x;
-		private int[] y;
-	}
+    public static class PasswordMessage implements Serializable {
+	    private static final long serialVersionUID = -7643194361868862396L;
+	    private PasswordMessage() {}
+	    private String hash;
+	    private int id;
+    }
 
 	/////////////////
 	// Actor State //
@@ -71,7 +74,7 @@ public class Worker extends AbstractActor {
 		return receiveBuilder()
 				.match(CurrentClusterState.class, this::handle)
 				.match(MemberUp.class, this::handle)
-				.match(WorkMessage.class, this::handle)
+                .match(PasswordMessage.class, this::handle)
 				.matchAny(object -> this.log.info("Received unknown message: \"{}\"", object.toString()))
 				.build();
 	}
@@ -94,32 +97,24 @@ public class Worker extends AbstractActor {
 				.tell(new RegistrationMessage(), this.self());
 	}
 
-	private void handle(WorkMessage message) {
-		long y = 0;
-		for (int i = 0; i < 1000000; i++)
-			if (this.isPrime(i))
-				y = y + i;
-		
-		this.log.info("done: " + y);
-		
-		this.sender().tell(new CompletionMessage(CompletionMessage.status.EXTENDABLE), this.self());
-	}
-	
-	private boolean isPrime(long n) {
-		
-		// Check for the most basic primes
-		if (n == 1 || n == 2 || n == 3)
-			return true;
+	private void handle(PasswordMessage message) throws UnsupportedEncodingException, NoSuchAlgorithmException {
+	    for (int i=10000; i<99999; i++) {
+	        String hashed = hash(Integer.toString(i));
+	        if (hashed.equals(message.hash)) {
+	            this.sender().tell(new Profiler.PasswordCompletionMessage(hashed, message.id), this.self());
+	            return;
+            }
+        }
+        this.sender().tell(new Profiler.PasswordCompletionMessage("", -1), this.self());
+    }
 
-		// Check if n is an even number
-		if (n % 2 == 0)
-			return false;
-
-		// Check the odds
-		for (long i = 3; i * i <= n; i += 2)
-			if (n % i == 0)
-				return false;
-		
-		return true;
-	}
+    private String hash(String password) throws UnsupportedEncodingException, NoSuchAlgorithmException {
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        byte[] hashedBytes = digest.digest(password.getBytes("UTF-8"));
+        StringBuffer stringBuffer = new StringBuffer();
+        for (int i=0; i<hashedBytes.length; i++) {
+            stringBuffer.append(Integer.toString((hashedBytes[i] & 0xff) + 0x100, 16).substring(1));
+        }
+        return stringBuffer.toString();
+    }
 }

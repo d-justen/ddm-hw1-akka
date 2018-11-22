@@ -13,7 +13,6 @@ import akka.actor.Props;
 import akka.actor.Terminated;
 import akka.event.Logging;
 import akka.event.LoggingAdapter;
-import de.hpi.octopus.actors.Worker.WorkMessage;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
@@ -44,13 +43,13 @@ public class Profiler extends AbstractActor {
 		private TaskMessage() {}
 		private int attributes;
 	}
-	
+
 	@Data @AllArgsConstructor @SuppressWarnings("unused")
-	public static class CompletionMessage implements Serializable {
-		private static final long serialVersionUID = -6823011111281387872L;
-		public enum status {MINIMAL, EXTENDABLE, FALSE, FAILED}
-		private CompletionMessage() {}
-		private status result;
+	public static class PasswordCompletionMessage implements Serializable {
+		private static final long serialVersionUID = -6823011111281387873L;
+		private PasswordCompletionMessage() {}
+		private String password;
+		private int id;
 	}
 	
 	/////////////////
@@ -59,9 +58,9 @@ public class Profiler extends AbstractActor {
 	
 	private final LoggingAdapter log = Logging.getLogger(getContext().system(), this);
 
-	private final Queue<WorkMessage> unassignedWork = new LinkedList<>();
+	private final Queue<Worker.PasswordMessage> unassignedWork = new LinkedList<>();
 	private final Queue<ActorRef> idleWorkers = new LinkedList<>();
-	private final Map<ActorRef, WorkMessage> busyWorkers = new HashMap<>();
+	private final Map<ActorRef, Worker.PasswordMessage> busyWorkers = new HashMap<>();
 
 	private TaskMessage task;
 
@@ -75,7 +74,7 @@ public class Profiler extends AbstractActor {
 				.match(RegistrationMessage.class, this::handle)
 				.match(Terminated.class, this::handle)
 				.match(TaskMessage.class, this::handle)
-				.match(CompletionMessage.class, this::handle)
+				.match(PasswordCompletionMessage.class, this::handle)
 				.matchAny(object -> this.log.info("Received unknown message: \"{}\"", object.toString()))
 				.build();
 	}
@@ -91,7 +90,7 @@ public class Profiler extends AbstractActor {
 		this.context().unwatch(message.getActor());
 		
 		if (!this.idleWorkers.remove(message.getActor())) {
-			WorkMessage work = this.busyWorkers.remove(message.getActor());
+			Worker.PasswordMessage work = this.busyWorkers.remove(message.getActor());
 			if (work != null) {
 				this.assign(work);
 			}
@@ -104,34 +103,19 @@ public class Profiler extends AbstractActor {
 			this.log.error("The profiler actor can process only one task in its current implementation!");
 		
 		this.task = message;
-		this.assign(new WorkMessage(new int[0], new int[0]));
+		this.assign(new Worker.PasswordMessage("5994471ABB01112AFCC18159F6CC74B4F511B99806DA59B3CAF5A9C173CACFC5", 0));
 	}
 	
-	private void handle(CompletionMessage message) {
+	private void handle(PasswordCompletionMessage message) {
 		ActorRef worker = this.sender();
-		WorkMessage work = this.busyWorkers.remove(worker);
+		Worker.PasswordMessage work = this.busyWorkers.remove(worker);
 
-		this.log.info("Completed: [{},{}]", Arrays.toString(work.getX()), Arrays.toString(work.getY()));
-		
-		switch (message.getResult()) {
-			case MINIMAL: 
-				this.report(work);
-				break;
-			case EXTENDABLE:
-				this.split(work);
-				break;
-			case FALSE:
-				// Ignore
-				break;
-			case FAILED:
-				this.assign(work);
-				break;
-		}
+		this.log.info("Completed: [{},{}]", message.password, message.id);
 		
 		this.assign(worker);
 	}
 	
-	private void assign(WorkMessage work) {
+	private void assign(Worker.PasswordMessage work) {
 		ActorRef worker = this.idleWorkers.poll();
 		
 		if (worker == null) {
@@ -144,7 +128,7 @@ public class Profiler extends AbstractActor {
 	}
 	
 	private void assign(ActorRef worker) {
-		WorkMessage work = this.unassignedWork.poll();
+		Worker.PasswordMessage work = this.unassignedWork.poll();
 		
 		if (work == null) {
 			this.idleWorkers.add(worker);
@@ -155,14 +139,13 @@ public class Profiler extends AbstractActor {
 		worker.tell(work, this.self());
 	}
 	
-	private void report(WorkMessage work) {
-		this.log.info("UCC: {}", Arrays.toString(work.getX()));
+	private void report(Worker.PasswordMessage work) {
+		this.log.info("UCC: {}", work.getHash());
 	}
 
-	private void split(WorkMessage work) {
-		int[] x = work.getX();
-		int[] y = work.getY();
-		
+	private void split(Worker.PasswordMessage work) {
+		/*String[] x = work.getHash();
+
 		int next = x.length + y.length;
 		
 		if (next < this.task.getAttributes() - 1) {
@@ -173,6 +156,6 @@ public class Profiler extends AbstractActor {
 			int[] yNew = Arrays.copyOf(y, y.length + 1);
 			yNew[y.length] = next;
 			this.assign(new WorkMessage(x, yNew));
-		}
+		}*/
 	}
 }

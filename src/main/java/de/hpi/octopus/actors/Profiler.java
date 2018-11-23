@@ -74,7 +74,10 @@ public class Profiler extends AbstractActor {
 	private final Map<ActorRef, Object> busyWorkers = new HashMap<>();
 
 	private int[] passwords;
+	private int[] genePartners;
 	private int nrPasswords = 0;
+	private int nrGenePartners = 0;
+	private boolean hashMiningStarted = false;
 	private long lastMax = 0;
 	private boolean solved = false;
 
@@ -122,6 +125,7 @@ public class Profiler extends AbstractActor {
 		
 		this.task = message;
 		this.passwords = new int[message.table.length];
+		this.genePartners = new int[message.table.length];
 		ArrayList<String> dna_seqs = new ArrayList<>();
 
 		for (int i=0; i<message.table.length; i++) {
@@ -156,6 +160,8 @@ public class Profiler extends AbstractActor {
 			if (!unassignedWork.isEmpty()) {
 				unassignedWork.removeIf(o -> (o instanceof Worker.LinearCombinationMessage));
 			}
+
+			if (this.genePartners.length == this.nrGenePartners) assignHashMining();
 		} else if (unassignedWork.isEmpty()) assignLinear();
 
 		this.log.info("Completed: [{}]", message.solved);
@@ -166,8 +172,13 @@ public class Profiler extends AbstractActor {
 		ActorRef worker = this.sender();
 		this.busyWorkers.remove(worker);
 
+		this.genePartners[message.partner1] = message.partner2;
+		this.nrGenePartners++;
+
 		this.log.info("Completed: [{},{}]", message.partner1, message.partner2);
 		this.assign(worker);
+
+		if (this.genePartners.length == this.nrGenePartners && this.solved) assignHashMining();
 	}
 
 	private void assign(Object work) {
@@ -202,6 +213,17 @@ public class Profiler extends AbstractActor {
 			assign(new Worker.LinearCombinationMessage(newMin, newMax, passwords));
 		}
 		lastMax += 1000000000;
+	}
+
+	private void assignHashMining() {
+
+		if (this.hashMiningStarted) {
+			return;
+		}
+
+		this.hashMiningStarted = true;
+
+		this.log.info("Start hash mining");
 	}
 	
 	private void report(Worker.PasswordMessage work) {

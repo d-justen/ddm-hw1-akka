@@ -54,6 +54,14 @@ public class Profiler extends AbstractActor {
 		private boolean solved;
 		private int[] prefixes;
 	}
+
+	@Data @AllArgsConstructor @SuppressWarnings("unused")
+	public static class GeneCompletionMessage implements Serializable {
+		private static final long serialVersionUID = -35960706709105998L;
+		private GeneCompletionMessage() {}
+		private int partner1;
+		private int partner2;
+	}
 	
 	/////////////////
 	// Actor State //
@@ -84,6 +92,7 @@ public class Profiler extends AbstractActor {
 				.match(TaskMessage.class, this::handle)
 				.match(PasswordCompletionMessage.class, this::handle)
 				.match(LinearCompletionMessage.class, this::handle)
+				.match(GeneCompletionMessage.class, this::handle)
 				.matchAny(object -> this.log.info("Received unknown message: \"{}\"", object.toString()))
 				.build();
 	}
@@ -113,8 +122,15 @@ public class Profiler extends AbstractActor {
 		
 		this.task = message;
 		this.passwords = new int[message.table.length];
+		ArrayList<String> dna_seqs = new ArrayList<>();
+
+		for (int i=0; i<message.table.length; i++) {
+			dna_seqs.add(message.table[i][3]);
+		}
+
 		for (int i=0; i<message.table.length; i++) {
 			this.assign(new Worker.PasswordMessage(message.table[i][2], message.table[i][0]));
+			this.assign(new Worker.GeneMessage(i, dna_seqs));
 		}
 	}
 	
@@ -143,6 +159,14 @@ public class Profiler extends AbstractActor {
 		} else if (unassignedWork.isEmpty()) assignLinear();
 
 		this.log.info("Completed: [{}]", message.solved);
+		this.assign(worker);
+	}
+
+	private void handle(GeneCompletionMessage message) {
+		ActorRef worker = this.sender();
+		this.busyWorkers.remove(worker);
+
+		this.log.info("Completed: [{},{}]", message.partner1, message.partner2);
 		this.assign(worker);
 	}
 

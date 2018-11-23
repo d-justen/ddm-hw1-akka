@@ -4,6 +4,7 @@ import java.io.Serializable;
 import java.io.UnsupportedEncodingException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.List;
 
 import akka.actor.AbstractActor;
 import akka.actor.Props;
@@ -51,6 +52,14 @@ public class Worker extends AbstractActor {
 		private int[] passwords;
 	}
 
+	@Data @AllArgsConstructor @SuppressWarnings("unused")
+	public static class GeneMessage implements Serializable {
+		private static final long serialVersionUID = -7684072222482718287L;
+		private GeneMessage() {}
+		private int index;
+		private List<String> dna_seqs;
+	}
+
 	/////////////////
 	// Actor State //
 	/////////////////
@@ -83,6 +92,7 @@ public class Worker extends AbstractActor {
 				.match(MemberUp.class, this::handle)
                 .match(PasswordMessage.class, this::handle)
 				.match(LinearCombinationMessage.class, this::handle)
+				.match(GeneMessage.class, this::handle)
 				.matchAny(object -> this.log.info("Received unknown message: \"{}\"", object.toString()))
 				.build();
 	}
@@ -140,6 +150,12 @@ public class Worker extends AbstractActor {
 		this.sender().tell(new Profiler.LinearCompletionMessage(false, null), this.self());
 	}
 
+	private void handle(GeneMessage message) throws UnsupportedEncodingException, NoSuchAlgorithmException {
+		int partner = longestOverlapPartner(message.index, message.dna_seqs);
+
+		this.sender().tell(new Profiler.GeneCompletionMessage(message.index, partner), this.self());
+	}
+
     private String hash(String password) throws UnsupportedEncodingException, NoSuchAlgorithmException {
         MessageDigest digest = MessageDigest.getInstance("SHA-256");
         byte[] hashedBytes = digest.digest(password.getBytes("UTF-8"));
@@ -149,4 +165,59 @@ public class Worker extends AbstractActor {
         }
         return stringBuffer.toString();
     }
+
+	private int longestOverlapPartner(int thisIndex, List<String> sequences) {
+		int bestOtherIndex = -1;
+		String bestOverlap = "";
+		for (int otherIndex = 0; otherIndex < sequences.size(); otherIndex++) {
+			if (otherIndex == thisIndex)
+				continue;
+
+			String longestOverlap = this.longestOverlap(sequences.get(thisIndex), sequences.get(otherIndex));
+
+			if (bestOverlap.length() < longestOverlap.length()) {
+				bestOverlap = longestOverlap;
+				bestOtherIndex = otherIndex;
+			}
+		}
+		return bestOtherIndex;
+	}
+
+	private String longestOverlap(String str1, String str2) {
+		if (str1.isEmpty() || str2.isEmpty())
+			return "";
+
+		if (str1.length() > str2.length()) {
+			String temp = str1;
+			str1 = str2;
+			str2 = temp;
+		}
+
+		int[] currentRow = new int[str1.length()];
+		int[] lastRow = str2.length() > 1 ? new int[str1.length()] : null;
+		int longestSubstringLength = 0;
+		int longestSubstringStart = 0;
+
+		for (int str2Index = 0; str2Index < str2.length(); str2Index++) {
+			char str2Char = str2.charAt(str2Index);
+			for (int str1Index = 0; str1Index < str1.length(); str1Index++) {
+				int newLength;
+				if (str1.charAt(str1Index) == str2Char) {
+					newLength = str1Index == 0 || str2Index == 0 ? 1 : lastRow[str1Index - 1] + 1;
+
+					if (newLength > longestSubstringLength) {
+						longestSubstringLength = newLength;
+						longestSubstringStart = str1Index - (newLength - 1);
+					}
+				} else {
+					newLength = 0;
+				}
+				currentRow[str1Index] = newLength;
+			}
+			int[] temp = currentRow;
+			currentRow = lastRow;
+			lastRow = temp;
+		}
+		return str1.substring(longestSubstringStart, longestSubstringStart + longestSubstringLength);
+	}
 }

@@ -40,9 +40,16 @@ public class Worker extends AbstractActor {
     public static class PasswordMessage implements Serializable {
 	    private static final long serialVersionUID = -7643194361868862396L;
 	    private PasswordMessage() {}
-	    private String hash;
-	    private int id;
+	    private String hash, id;
     }
+
+	@Data @AllArgsConstructor @SuppressWarnings("unused")
+	public static class LinearCombinationMessage implements Serializable {
+		private static final long serialVersionUID = -7643194362638862396L;
+		private LinearCombinationMessage() {}
+		private long min, max;
+		private int[] passwords;
+	}
 
 	/////////////////
 	// Actor State //
@@ -75,6 +82,7 @@ public class Worker extends AbstractActor {
 				.match(CurrentClusterState.class, this::handle)
 				.match(MemberUp.class, this::handle)
                 .match(PasswordMessage.class, this::handle)
+				.match(LinearCombinationMessage.class, this::handle)
 				.matchAny(object -> this.log.info("Received unknown message: \"{}\"", object.toString()))
 				.build();
 	}
@@ -101,12 +109,36 @@ public class Worker extends AbstractActor {
 	    for (int i=100000; i<1000000; i++) {
 	        String hashed = hash(Integer.toString(i));
 	        if (hashed.equals(message.hash.toLowerCase())) {
-	            this.sender().tell(new Profiler.PasswordCompletionMessage(hashed, message.id), this.self());
+	            this.sender().tell(new Profiler.PasswordCompletionMessage(Integer.toString(i), message.id), this.self());
 	            return;
             }
         }
-        this.sender().tell(new Profiler.PasswordCompletionMessage("", -1), this.self());
+        this.sender().tell(new Profiler.PasswordCompletionMessage("", "-1"), this.self());
     }
+
+    private void handle(LinearCombinationMessage message) {
+		int[] prefixes = new int[message.passwords.length];
+
+		for (long i=message.min; i<message.max; i++) {
+			String bin = Long.toBinaryString(i);
+			for (int j=0; j<prefixes.length; j++) prefixes[j] = 1;
+
+			int count=0;
+			for (int k=bin.length() - 1; k>=0; k--) {
+				if (bin.charAt(k) == '1') prefixes[count] = -1;
+				count++;
+			}
+			int sum = 0;
+			for (int l=0; l<message.passwords.length; l++) {
+				sum += prefixes[l] * message.passwords[l];
+			}
+			if (sum == 0) {
+				this.sender().tell(new Profiler.LinearCompletionMessage(true, prefixes), this.self());
+				return;
+			}
+		}
+		this.sender().tell(new Profiler.LinearCompletionMessage(false, null), this.self());
+	}
 
     private String hash(String password) throws UnsupportedEncodingException, NoSuchAlgorithmException {
         MessageDigest digest = MessageDigest.getInstance("SHA-256");

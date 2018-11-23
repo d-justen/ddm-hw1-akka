@@ -1,11 +1,7 @@
 package de.hpi.octopus.actors;
 
 import java.io.Serializable;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.Map;
-import java.util.Queue;
+import java.util.*;
 
 import akka.actor.AbstractActor;
 import akka.actor.ActorRef;
@@ -48,8 +44,15 @@ public class Profiler extends AbstractActor {
 	public static class PasswordCompletionMessage implements Serializable {
 		private static final long serialVersionUID = -6823011111281387873L;
 		private PasswordCompletionMessage() {}
-		private String password;
-		private int id;
+		private String password, id;
+	}
+
+	@Data @AllArgsConstructor @SuppressWarnings("unused")
+	public static class LinearCompletionMessage implements Serializable {
+		private static final long serialVersionUID = 6823011111281389301L;
+		private LinearCompletionMessage() {}
+		private boolean solved;
+		private int[] prefixes;
 	}
 	
 	/////////////////
@@ -58,9 +61,14 @@ public class Profiler extends AbstractActor {
 	
 	private final LoggingAdapter log = Logging.getLogger(getContext().system(), this);
 
-	private final Queue<Worker.PasswordMessage> unassignedWork = new LinkedList<>();
+	private final Queue<Object> unassignedWork = new LinkedList<>();
 	private final Queue<ActorRef> idleWorkers = new LinkedList<>();
-	private final Map<ActorRef, Worker.PasswordMessage> busyWorkers = new HashMap<>();
+	private final Map<ActorRef, Object> busyWorkers = new HashMap<>();
+
+	private int[] passwords;
+	private int nrPasswords = 0;
+	private long lastMax = 0;
+	private boolean solved = false;
 
 	private TaskMessage task;
 
@@ -75,6 +83,7 @@ public class Profiler extends AbstractActor {
 				.match(Terminated.class, this::handle)
 				.match(TaskMessage.class, this::handle)
 				.match(PasswordCompletionMessage.class, this::handle)
+				.match(LinearCompletionMessage.class, this::handle)
 				.matchAny(object -> this.log.info("Received unknown message: \"{}\"", object.toString()))
 				.build();
 	}
@@ -90,34 +99,54 @@ public class Profiler extends AbstractActor {
 		this.context().unwatch(message.getActor());
 		
 		if (!this.idleWorkers.remove(message.getActor())) {
-			Worker.PasswordMessage work = this.busyWorkers.remove(message.getActor());
+			Object work = this.busyWorkers.remove(message.getActor());
 			if (work != null) {
 				this.assign(work);
 			}
 		}		
 		this.log.info("Unregistered {}", message.getActor());
 	}
-	
+
 	private void handle(TaskMessage message) {
 		if (this.task != null)
 			this.log.error("The profiler actor can process only one task in its current implementation!");
 		
 		this.task = message;
+		this.passwords = new int[message.table.length];
 		for (int i=0; i<message.table.length; i++) {
-			this.assign(new Worker.PasswordMessage(message.table[i][2], i));
+			this.assign(new Worker.PasswordMessage(message.table[i][2], message.table[i][0]));
 		}
 	}
 	
 	private void handle(PasswordCompletionMessage message) {
 		ActorRef worker = this.sender();
-		Worker.PasswordMessage work = this.busyWorkers.remove(worker);
-
+		this.busyWorkers.remove(worker);
+		passwords[Integer.parseInt(message.id) - 1] = Integer.parseInt(message.password);
 		this.log.info("Completed: [{},{}]", message.password, message.id);
-		
+		nrPasswords++;
+
+		if (passwords.length == nrPasswords) assignLinear();
+
 		this.assign(worker);
 	}
-	
-	private void assign(Worker.PasswordMessage work) {
+
+	private void handle(LinearCompletionMessage message) {
+		ActorRef worker = this.sender();
+		this.busyWorkers.remove(worker);
+
+		if (solved || message.solved) {
+			solved = true;
+
+			if (!unassignedWork.isEmpty()) {
+				unassignedWork.removeIf(o -> (o instanceof Worker.LinearCombinationMessage));
+			}
+		} else if (unassignedWork.isEmpty()) assignLinear();
+
+		this.log.info("Completed: [{}]", message.solved);
+		this.assign(worker);
+	}
+
+	private void assign(Object work) {
 		ActorRef worker = this.idleWorkers.poll();
 		
 		if (worker == null) {
@@ -130,19 +159,29 @@ public class Profiler extends AbstractActor {
 	}
 	
 	private void assign(ActorRef worker) {
-		Worker.PasswordMessage work = this.unassignedWork.poll();
-		
+		Object work = this.unassignedWork.poll();
+
 		if (work == null) {
 			this.idleWorkers.add(worker);
 			return;
 		}
-		
+
 		this.busyWorkers.put(worker, work);
 		worker.tell(work, this.self());
 	}
+
+	private void assignLinear() {
+
+		for (int i=0; i<100; i++) {
+			long newMin = lastMax + 10000000 * i;
+			long newMax = lastMax + 10000000 * (i+1);
+			assign(new Worker.LinearCombinationMessage(newMin, newMax, passwords));
+		}
+		lastMax += 1000000000;
+	}
 	
 	private void report(Worker.PasswordMessage work) {
-		this.log.info("UCC: {}", work.getHash());
+		//this.log.info("UCC: {}", work.getHash());
 	}
 
 	private void split(Worker.PasswordMessage work) {

@@ -4,6 +4,7 @@ import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Scanner;
 
 import com.typesafe.config.Config;
@@ -61,13 +62,14 @@ public class OctopusMaster extends OctopusSystem {
 	private static String[][] readCSV() throws FileNotFoundException, IOException {
 		BufferedReader br = new BufferedReader(new FileReader("./students.csv"));
 		String line = br.readLine();
-		String[][] table = new String[42][];
-		int count = 0;
+		ArrayList<String[]> table = new ArrayList<>();
+
 		while ((line = br.readLine()) != null) {
-			String[] row = line.split(";");
-			table[count] = row;
-			count++;
+			if (!line.isEmpty()) {
+				String[] row = line.split(";");
+				table.add(row);
+			}
 		}
-		return table;
+		return table.toArray(new String[table.size()][]);
 	}
 }

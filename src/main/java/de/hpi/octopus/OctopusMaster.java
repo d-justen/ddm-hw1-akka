@@ -20,7 +20,7 @@ public class OctopusMaster extends OctopusSystem {
 	
 	public static final String MASTER_ROLE = "master";
 
-	public static void start(String actorSystemName, int workers, String host, int port) {
+	public static void start(String actorSystemName, int workers, String host, int port, String filepath) {
 
 		final Config config = createConfiguration(actorSystemName, MASTER_ROLE, host, port, host, port);
 		
@@ -47,20 +47,16 @@ public class OctopusMaster extends OctopusSystem {
 			}
 		});
 		
-		final Scanner scanner = new Scanner(System.in);
-		String line = scanner.nextLine();
-		scanner.close();
-		
 		try {
-			system.actorSelection("/user/" + Profiler.DEFAULT_NAME).tell(new Profiler.TaskMessage(readCSV()), ActorRef.noSender());
+			system.actorSelection("/user/" + Profiler.DEFAULT_NAME).tell(new Profiler.TaskMessage(readCSV(filepath)), ActorRef.noSender());
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
 
 	}
 
-	private static String[][] readCSV() throws FileNotFoundException, IOException {
-		BufferedReader br = new BufferedReader(new FileReader("./students.csv"));
+	private static String[][] readCSV(String path) throws FileNotFoundException, IOException {
+		BufferedReader br = new BufferedReader(new FileReader(path));
 		String line = br.readLine();
 		ArrayList<String[]> table = new ArrayList<>();
 

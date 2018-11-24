@@ -62,6 +62,15 @@ public class Profiler extends AbstractActor {
 		private int partner1;
 		private int partner2;
 	}
+
+	@Data @AllArgsConstructor @SuppressWarnings("unused")
+	public static class HashMiningCompletionMessage implements Serializable {
+		private static final long serialVersionUID = 4267335851792184144L;
+		private HashMiningCompletionMessage() {}
+		private int partner1;
+		private int partner2;
+		private String hash;
+	}
 	
 	/////////////////
 	// Actor State //
@@ -75,6 +84,7 @@ public class Profiler extends AbstractActor {
 
 	private int[] passwords;
 	private int[] genePartners;
+	private int[] prefixes;
 	private int nrPasswords = 0;
 	private int nrGenePartners = 0;
 	private boolean hashMiningStarted = false;
@@ -96,6 +106,7 @@ public class Profiler extends AbstractActor {
 				.match(PasswordCompletionMessage.class, this::handle)
 				.match(LinearCompletionMessage.class, this::handle)
 				.match(GeneCompletionMessage.class, this::handle)
+				.match(HashMiningCompletionMessage.class, this::handle)
 				.matchAny(object -> this.log.info("Received unknown message: \"{}\"", object.toString()))
 				.build();
 	}
@@ -126,6 +137,7 @@ public class Profiler extends AbstractActor {
 		this.task = message;
 		this.passwords = new int[message.table.length];
 		this.genePartners = new int[message.table.length];
+		this.prefixes = new int[message.table.length];
 		ArrayList<String> dna_seqs = new ArrayList<>();
 
 		for (int i=0; i<message.table.length; i++) {
@@ -160,9 +172,12 @@ public class Profiler extends AbstractActor {
 			if (!unassignedWork.isEmpty()) {
 				unassignedWork.removeIf(o -> (o instanceof Worker.LinearCombinationMessage));
 			}
-
-			if (this.genePartners.length == this.nrGenePartners) assignHashMining();
 		} else if (unassignedWork.isEmpty()) assignLinear();
+
+		if (message.solved && this.genePartners.length == this.nrGenePartners) {
+			this.prefixes = message.prefixes;
+			assignHashMining();
+		}
 
 		this.log.info("Completed: [{}]", message.solved);
 		this.assign(worker);
@@ -179,6 +194,14 @@ public class Profiler extends AbstractActor {
 		this.assign(worker);
 
 		if (this.genePartners.length == this.nrGenePartners && this.solved) assignHashMining();
+	}
+
+	private void handle(HashMiningCompletionMessage message) {
+		ActorRef worker = this.sender();
+		this.busyWorkers.remove(worker);
+
+		this.log.info("Completed: [{},{},{}]", message.partner1, message.partner2, message.hash);
+		this.assign(worker);
 	}
 
 	private void assign(Object work) {
@@ -222,6 +245,10 @@ public class Profiler extends AbstractActor {
 		}
 
 		this.hashMiningStarted = true;
+
+		for (int i = 0; i < this.genePartners.length; i++) {
+			this.assign(new Worker.HashMiningMessage(i, this.genePartners[i], this.prefixes[i], 5));
+		}
 
 		this.log.info("Start hash mining");
 	}

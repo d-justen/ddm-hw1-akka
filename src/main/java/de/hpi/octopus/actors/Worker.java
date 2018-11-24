@@ -5,6 +5,7 @@ import java.io.UnsupportedEncodingException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.List;
+import java.util.Random;
 
 import akka.actor.AbstractActor;
 import akka.actor.Props;
@@ -60,6 +61,16 @@ public class Worker extends AbstractActor {
 		private List<String> dna_seqs;
 	}
 
+	@Data @AllArgsConstructor @SuppressWarnings("unused")
+	public static class HashMiningMessage implements Serializable {
+		private static final long serialVersionUID = -1351524675941721227L;
+		private HashMiningMessage() {}
+		private int index;
+		private int partner;
+		private int prefix;
+		private int prefixLength;
+	}
+
 	/////////////////
 	// Actor State //
 	/////////////////
@@ -93,6 +104,7 @@ public class Worker extends AbstractActor {
                 .match(PasswordMessage.class, this::handle)
 				.match(LinearCombinationMessage.class, this::handle)
 				.match(GeneMessage.class, this::handle)
+				.match(HashMiningMessage.class, this::handle)
 				.matchAny(object -> this.log.info("Received unknown message: \"{}\"", object.toString()))
 				.build();
 	}
@@ -150,10 +162,18 @@ public class Worker extends AbstractActor {
 		this.sender().tell(new Profiler.LinearCompletionMessage(false, null), this.self());
 	}
 
-	private void handle(GeneMessage message) throws UnsupportedEncodingException, NoSuchAlgorithmException {
+	private void handle(GeneMessage message) {
 		int partner = longestOverlapPartner(message.index, message.dna_seqs);
 
 		this.sender().tell(new Profiler.GeneCompletionMessage(message.index, partner), this.self());
+	}
+
+	private void handle(HashMiningMessage message) throws UnsupportedEncodingException, NoSuchAlgorithmException {
+		String prefix = (message.prefix > 0) ? "1" : "0";
+
+		String hash = this.findHash(message.partner, prefix, message.prefixLength);
+
+		this.sender().tell(new Profiler.HashMiningCompletionMessage(message.index, message.partner, hash), this.self());
 	}
 
     private String hash(String password) throws UnsupportedEncodingException, NoSuchAlgorithmException {
@@ -165,6 +185,23 @@ public class Worker extends AbstractActor {
         }
         return stringBuffer.toString();
     }
+
+	private String findHash(int content, String prefix, int prefixLength) throws UnsupportedEncodingException, NoSuchAlgorithmException {
+		StringBuilder fullPrefixBuilder = new StringBuilder();
+		for (int i = 0; i < prefixLength; i++)
+			fullPrefixBuilder.append(prefix);
+
+		Random rand = new Random(13);
+
+		String fullPrefix = fullPrefixBuilder.toString();
+		int nonce = 0;
+		while (true) {
+			nonce = rand.nextInt();
+			String hash = this.hash("" + (content + nonce));
+			if (hash.startsWith(fullPrefix))
+				return hash;
+		}
+	}
 
 	private int longestOverlapPartner(int thisIndex, List<String> sequences) {
 		int bestOtherIndex = -1;

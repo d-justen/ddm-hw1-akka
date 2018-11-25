@@ -62,7 +62,7 @@ public class OctopusMaster extends OctopusSystem {
 					input_csv = readCSV_by_column(filepath);
 					if (input_csv != null) {
 						system.actorSelection("/user/" + Profiler.DEFAULT_NAME)
-								.tell(new Profiler.TaskMessage(input_csv[2]), ActorRef.noSender());
+								.tell(new Profiler.TaskMessage(input_csv), ActorRef.noSender());
 					}
 					break;
 				case "gene":

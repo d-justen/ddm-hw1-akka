@@ -17,7 +17,7 @@ public class Profiler extends AbstractActor {
 	////////////////////////
 	// Actor Construction //
 	////////////////////////
-	
+
 	public static final String DEFAULT_NAME = "profiler";
 
 	public static Props props() {
@@ -27,59 +27,81 @@ public class Profiler extends AbstractActor {
 	////////////////////
 	// Actor Messages //
 	////////////////////
-	
-	@Data @AllArgsConstructor
+
+	@Data
+	@AllArgsConstructor
 	public static class RegistrationMessage implements Serializable {
 		private static final long serialVersionUID = 4545299661052078209L;
 	}
 
-	@Data @AllArgsConstructor @SuppressWarnings("unused")
+	@Data
+	@AllArgsConstructor
+	@SuppressWarnings("unused")
 	public static class TaskMessage implements Serializable {
 		private static final long serialVersionUID = -8330958742629706627L;
-		private TaskMessage() {}
-		private String[][] table;
 
-		// public TaskMessage(String[][] s) {
-		// 	this.table = s;
-		// }
+		private TaskMessage() {
+		}
+
+		private String[][] columns;
 	}
 
-	@Data @AllArgsConstructor @SuppressWarnings("unused")
+	@Data
+	@AllArgsConstructor
+	@SuppressWarnings("unused")
 	public static class PasswordCompletionMessage implements Serializable {
 		private static final long serialVersionUID = -6823011111281387873L;
-		private PasswordCompletionMessage() {}
+
+		private PasswordCompletionMessage() {
+		}
+
 		private String password, id;
 	}
 
-	@Data @AllArgsConstructor @SuppressWarnings("unused")
+	@Data
+	@AllArgsConstructor
+	@SuppressWarnings("unused")
 	public static class LinearCompletionMessage implements Serializable {
 		private static final long serialVersionUID = 6823011111281389301L;
-		private LinearCompletionMessage() {}
+
+		private LinearCompletionMessage() {
+		}
+
 		private boolean solved;
 		private int[] prefixes;
 	}
 
-	@Data @AllArgsConstructor @SuppressWarnings("unused")
+	@Data
+	@AllArgsConstructor
+	@SuppressWarnings("unused")
 	public static class GeneCompletionMessage implements Serializable {
 		private static final long serialVersionUID = -35960706709105998L;
-		private GeneCompletionMessage() {}
+
+		private GeneCompletionMessage() {
+		}
+
 		private int partner1;
 		private int partner2;
 	}
 
-	@Data @AllArgsConstructor @SuppressWarnings("unused")
+	@Data
+	@AllArgsConstructor
+	@SuppressWarnings("unused")
 	public static class HashMiningCompletionMessage implements Serializable {
 		private static final long serialVersionUID = 4267335851792184144L;
-		private HashMiningCompletionMessage() {}
+
+		private HashMiningCompletionMessage() {
+		}
+
 		private int partner1;
 		private int partner2;
 		private String hash;
 	}
-	
+
 	/////////////////
 	// Actor State //
 	/////////////////
-	
+
 	private final LoggingAdapter log = Logging.getLogger(getContext().system(), this);
 
 	private final Queue<Object> unassignedWork = new LinkedList<>();
@@ -100,60 +122,51 @@ public class Profiler extends AbstractActor {
 	////////////////////
 	// Actor Behavior //
 	////////////////////
-	
+
 	@Override
 	public Receive createReceive() {
-		return receiveBuilder()
-				.match(RegistrationMessage.class, this::handle)
-				.match(Terminated.class, this::handle)
-				.match(TaskMessage.class, this::handle)
-				.match(PasswordCompletionMessage.class, this::handle)
-				.match(LinearCompletionMessage.class, this::handle)
-				.match(GeneCompletionMessage.class, this::handle)
+		return receiveBuilder().match(RegistrationMessage.class, this::handle).match(Terminated.class, this::handle)
+				.match(TaskMessage.class, this::handle).match(PasswordCompletionMessage.class, this::handle)
+				.match(LinearCompletionMessage.class, this::handle).match(GeneCompletionMessage.class, this::handle)
 				.match(HashMiningCompletionMessage.class, this::handle)
-				.matchAny(object -> this.log.info("Received unknown message: \"{}\"", object.toString()))
-				.build();
+				.matchAny(object -> this.log.info("Received unknown message: \"{}\"", object.toString())).build();
 	}
 
 	private void handle(RegistrationMessage message) {
 		this.context().watch(this.sender());
-		
+
 		this.assign(this.sender());
 		this.log.info("Registered {}", this.sender());
 	}
-	
+
 	private void handle(Terminated message) {
 		this.context().unwatch(message.getActor());
-		
+
 		if (!this.idleWorkers.remove(message.getActor())) {
 			Object work = this.busyWorkers.remove(message.getActor());
 			if (work != null) {
 				this.assign(work);
 			}
-		}		
+		}
 		this.log.info("Unregistered {}", message.getActor());
 	}
 
 	private void handle(TaskMessage message) {
 		if (this.task != null)
 			this.log.error("The profiler actor can process only one task in its current implementation!");
-		
+
 		this.task = message;
-		this.passwords = new int[message.table.length];
-		this.genePartners = new int[message.table.length];
-		this.prefixes = new int[message.table.length];
-		ArrayList<String> dna_seqs = new ArrayList<>();
+		int len = message.columns[0].length;
+		this.passwords = new int[len];
+		this.genePartners = new int[len];
+		this.prefixes = new int[len];
 
-		for (int i=0; i<message.table.length; i++) {
-			dna_seqs.add(message.table[i][3]);
-		}
-
-		for (int i=0; i<message.table.length; i++) {
-			this.assign(new Worker.PasswordMessage(message.table[i][2], message.table[i][0]));
-			this.assign(new Worker.GeneMessage(i, dna_seqs));
+		for (int i = 0; i < message.column.length; i++) {
+			this.assign(new Worker.PasswordMessage(message.columns[0][i]));
+			this.assign(new Worker.GeneMessage(message.columns[2][i]));
 		}
 	}
-	
+
 	private void handle(PasswordCompletionMessage message) {
 		ActorRef worker = this.sender();
 		this.busyWorkers.remove(worker);
@@ -161,7 +174,8 @@ public class Profiler extends AbstractActor {
 		this.log.info("Completed: [{},{}]", message.password, message.id);
 		nrPasswords++;
 
-		if (passwords.length == nrPasswords) assignLinear();
+		if (passwords.length == nrPasswords)
+			assignLinear();
 
 		this.assign(worker);
 	}
@@ -176,7 +190,8 @@ public class Profiler extends AbstractActor {
 			if (!unassignedWork.isEmpty()) {
 				unassignedWork.removeIf(o -> (o instanceof Worker.LinearCombinationMessage));
 			}
-		} else if (unassignedWork.isEmpty()) assignLinear();
+		} else if (unassignedWork.isEmpty())
+			assignLinear();
 
 		if (message.solved && this.genePartners.length == this.nrGenePartners) {
 			this.prefixes = message.prefixes;
@@ -197,7 +212,8 @@ public class Profiler extends AbstractActor {
 		this.log.info("Completed: [{},{}]", message.partner1, message.partner2);
 		this.assign(worker);
 
-		if (this.genePartners.length == this.nrGenePartners && this.solved) assignHashMining();
+		if (this.genePartners.length == this.nrGenePartners && this.solved)
+			assignHashMining();
 	}
 
 	private void handle(HashMiningCompletionMessage message) {
@@ -210,16 +226,16 @@ public class Profiler extends AbstractActor {
 
 	private void assign(Object work) {
 		ActorRef worker = this.idleWorkers.poll();
-		
+
 		if (worker == null) {
 			this.unassignedWork.add(work);
 			return;
 		}
-		
+
 		this.busyWorkers.put(worker, work);
 		worker.tell(work, this.self());
 	}
-	
+
 	private void assign(ActorRef worker) {
 		Object work = this.unassignedWork.poll();
 
@@ -234,9 +250,9 @@ public class Profiler extends AbstractActor {
 
 	private void assignLinear() {
 
-		for (int i=0; i<100; i++) {
+		for (int i = 0; i < 100; i++) {
 			long newMin = lastMax + 10000000 * i;
-			long newMax = lastMax + 10000000 * (i+1);
+			long newMax = lastMax + 10000000 * (i + 1);
 			assign(new Worker.LinearCombinationMessage(newMin, newMax, passwords));
 		}
 		lastMax += 1000000000;
@@ -256,24 +272,22 @@ public class Profiler extends AbstractActor {
 
 		this.log.info("Start hash mining");
 	}
-	
+
 	private void report(Worker.PasswordMessage work) {
-		//this.log.info("UCC: {}", work.getHash());
+		// this.log.info("UCC: {}", work.getHash());
 	}
 
 	private void split(Worker.PasswordMessage work) {
-		/*String[] x = work.getHash();
-
-		int next = x.length + y.length;
-		
-		if (next < this.task.getAttributes() - 1) {
-			int[] xNew = Arrays.copyOf(x, x.length + 1);
-			xNew[x.length] = next;
-			this.assign(new WorkMessage(xNew, y));
-			
-			int[] yNew = Arrays.copyOf(y, y.length + 1);
-			yNew[y.length] = next;
-			this.assign(new WorkMessage(x, yNew));
-		}*/
+		/*
+		 * String[] x = work.getHash();
+		 * 
+		 * int next = x.length + y.length;
+		 * 
+		 * if (next < this.task.getAttributes() - 1) { int[] xNew = Arrays.copyOf(x,
+		 * x.length + 1); xNew[x.length] = next; this.assign(new WorkMessage(xNew, y));
+		 * 
+		 * int[] yNew = Arrays.copyOf(y, y.length + 1); yNew[y.length] = next;
+		 * this.assign(new WorkMessage(x, yNew)); }
+		 */
 	}
 }

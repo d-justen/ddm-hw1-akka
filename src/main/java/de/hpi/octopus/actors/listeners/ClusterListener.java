@@ -16,7 +16,7 @@ public class ClusterListener extends AbstractActor {
 	////////////////////////
 	// Actor Construction //
 	////////////////////////
-	
+
 	public static final String DEFAULT_NAME = "clusterListener";
 
 	public static Props props() {
@@ -26,14 +26,14 @@ public class ClusterListener extends AbstractActor {
 	/////////////////
 	// Actor State //
 	/////////////////
-	
+
 	private final LoggingAdapter log = Logging.getLogger(this.context().system(), this);
 	private final Cluster cluster = Cluster.get(this.context().system());
 
 	/////////////////////
 	// Actor Lifecycle //
 	/////////////////////
-	
+
 	@Override
 	public void preStart() {
 		this.cluster.subscribe(this.self(), MemberEvent.class, UnreachableMember.class);
@@ -47,7 +47,7 @@ public class ClusterListener extends AbstractActor {
 	////////////////////
 	// Actor Behavior //
 	////////////////////
-	
+
 	@Override
 	public Receive createReceive() {
 		return receiveBuilder().match(CurrentClusterState.class, state -> {

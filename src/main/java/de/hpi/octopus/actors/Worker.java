@@ -27,7 +27,7 @@ public class Worker extends AbstractActor {
 	////////////////////////
 	// Actor Construction //
 	////////////////////////
-	
+
 	public static final String DEFAULT_NAME = "worker";
 
 	public static Props props() {
@@ -38,33 +38,53 @@ public class Worker extends AbstractActor {
 	// Actor Messages //
 	////////////////////
 
-	@Data @AllArgsConstructor @SuppressWarnings("unused")
-    public static class PasswordMessage implements Serializable {
-	    private static final long serialVersionUID = -7643194361868862396L;
-	    private PasswordMessage() {}
-	    private String hash, id;
-    }
+	@Data
+	@AllArgsConstructor
+	@SuppressWarnings("unused")
+	public static class PasswordMessage implements Serializable {
+		private static final long serialVersionUID = -7643194361868862396L;
 
-	@Data @AllArgsConstructor @SuppressWarnings("unused")
+		private PasswordMessage() {
+		}
+
+		private String hash, id;
+	}
+
+	@Data
+	@AllArgsConstructor
+	@SuppressWarnings("unused")
 	public static class LinearCombinationMessage implements Serializable {
 		private static final long serialVersionUID = -7643194362638862396L;
-		private LinearCombinationMessage() {}
+
+		private LinearCombinationMessage() {
+		}
+
 		private long min, max;
 		private int[] passwords;
 	}
 
-	@Data @AllArgsConstructor @SuppressWarnings("unused")
+	@Data
+	@AllArgsConstructor
+	@SuppressWarnings("unused")
 	public static class GeneMessage implements Serializable {
 		private static final long serialVersionUID = -7684072222482718287L;
-		private GeneMessage() {}
+
+		private GeneMessage() {
+		}
+
 		private int index;
-		private List<String> dna_seqs;
+		private String[] dna_seqs;
 	}
 
-	@Data @AllArgsConstructor @SuppressWarnings("unused")
+	@Data
+	@AllArgsConstructor
+	@SuppressWarnings("unused")
 	public static class HashMiningMessage implements Serializable {
 		private static final long serialVersionUID = -1351524675941721227L;
-		private HashMiningMessage() {}
+
+		private HashMiningMessage() {
+		}
+
 		private int index;
 		private int partner;
 		private int prefix;
@@ -74,14 +94,14 @@ public class Worker extends AbstractActor {
 	/////////////////
 	// Actor State //
 	/////////////////
-	
+
 	private final LoggingAdapter log = Logging.getLogger(this.context().system(), this);
 	private final Cluster cluster = Cluster.get(this.context().system());
 
 	/////////////////////
 	// Actor Lifecycle //
 	/////////////////////
-	
+
 	@Override
 	public void preStart() {
 		this.cluster.subscribe(this.self(), MemberUp.class);
@@ -95,18 +115,13 @@ public class Worker extends AbstractActor {
 	////////////////////
 	// Actor Behavior //
 	////////////////////
-	
+
 	@Override
 	public Receive createReceive() {
-		return receiveBuilder()
-				.match(CurrentClusterState.class, this::handle)
-				.match(MemberUp.class, this::handle)
-                .match(PasswordMessage.class, this::handle)
-				.match(LinearCombinationMessage.class, this::handle)
-				.match(GeneMessage.class, this::handle)
-				.match(HashMiningMessage.class, this::handle)
-				.matchAny(object -> this.log.info("Received unknown message: \"{}\"", object.toString()))
-				.build();
+		return receiveBuilder().match(CurrentClusterState.class, this::handle).match(MemberUp.class, this::handle)
+				.match(PasswordMessage.class, this::handle).match(LinearCombinationMessage.class, this::handle)
+				.match(GeneMessage.class, this::handle).match(HashMiningMessage.class, this::handle)
+				.matchAny(object -> this.log.info("Received unknown message: \"{}\"", object.toString())).build();
 	}
 
 	private void handle(CurrentClusterState message) {
@@ -122,36 +137,38 @@ public class Worker extends AbstractActor {
 
 	private void register(Member member) {
 		if (member.hasRole(OctopusMaster.MASTER_ROLE))
-			this.getContext()
-				.actorSelection(member.address() + "/user/" + Profiler.DEFAULT_NAME)
-				.tell(new RegistrationMessage(), this.self());
+			this.getContext().actorSelection(member.address() + "/user/" + Profiler.DEFAULT_NAME)
+					.tell(new RegistrationMessage(), this.self());
 	}
 
 	private void handle(PasswordMessage message) throws UnsupportedEncodingException, NoSuchAlgorithmException {
-	    for (int i=100000; i<1000000; i++) {
-	        String hashed = hash(Integer.toString(i));
-	        if (hashed.equals(message.hash.toLowerCase())) {
-	            this.sender().tell(new Profiler.PasswordCompletionMessage(Integer.toString(i), message.id), this.self());
-	            return;
-            }
-        }
-        this.sender().tell(new Profiler.PasswordCompletionMessage("", "-1"), this.self());
-    }
+		for (int i = 100000; i < 1000000; i++) {
+			String hashed = hash(Integer.toString(i));
+			if (hashed.equals(message.hash.toLowerCase())) {
+				this.sender().tell(new Profiler.PasswordCompletionMessage(Integer.toString(i), message.id),
+						this.self());
+				return;
+			}
+		}
+		this.sender().tell(new Profiler.PasswordCompletionMessage("", "-1"), this.self());
+	}
 
-    private void handle(LinearCombinationMessage message) {
+	private void handle(LinearCombinationMessage message) {
 		int[] prefixes = new int[message.passwords.length];
 
-		for (long i=message.min; i<message.max; i++) {
+		for (long i = message.min; i < message.max; i++) {
 			String bin = Long.toBinaryString(i);
-			for (int j=0; j<prefixes.length; j++) prefixes[j] = 1;
+			for (int j = 0; j < prefixes.length; j++)
+				prefixes[j] = 1;
 
-			int count=0;
-			for (int k=bin.length() - 1; k>=0; k--) {
-				if (bin.charAt(k) == '1') prefixes[count] = -1;
+			int count = 0;
+			for (int k = bin.length() - 1; k >= 0; k--) {
+				if (bin.charAt(k) == '1')
+					prefixes[count] = -1;
 				count++;
 			}
 			int sum = 0;
-			for (int l=0; l<message.passwords.length; l++) {
+			for (int l = 0; l < message.passwords.length; l++) {
 				sum += prefixes[l] * message.passwords[l];
 			}
 			if (sum == 0) {
@@ -176,17 +193,18 @@ public class Worker extends AbstractActor {
 		this.sender().tell(new Profiler.HashMiningCompletionMessage(message.index, message.partner, hash), this.self());
 	}
 
-    private String hash(String password) throws UnsupportedEncodingException, NoSuchAlgorithmException {
-        MessageDigest digest = MessageDigest.getInstance("SHA-256");
-        byte[] hashedBytes = digest.digest(password.getBytes("UTF-8"));
-        StringBuffer stringBuffer = new StringBuffer();
-        for (int i=0; i<hashedBytes.length; i++) {
-            stringBuffer.append(Integer.toString((hashedBytes[i] & 0xff) + 0x100, 16).substring(1));
-        }
-        return stringBuffer.toString();
-    }
+	private String hash(String password) throws UnsupportedEncodingException, NoSuchAlgorithmException {
+		MessageDigest digest = MessageDigest.getInstance("SHA-256");
+		byte[] hashedBytes = digest.digest(password.getBytes("UTF-8"));
+		StringBuffer stringBuffer = new StringBuffer();
+		for (int i = 0; i < hashedBytes.length; i++) {
+			stringBuffer.append(Integer.toString((hashedBytes[i] & 0xff) + 0x100, 16).substring(1));
+		}
+		return stringBuffer.toString();
+	}
 
-	private String findHash(int content, String prefix, int prefixLength) throws UnsupportedEncodingException, NoSuchAlgorithmException {
+	private String findHash(int content, String prefix, int prefixLength)
+			throws UnsupportedEncodingException, NoSuchAlgorithmException {
 		StringBuilder fullPrefixBuilder = new StringBuilder();
 		for (int i = 0; i < prefixLength; i++)
 			fullPrefixBuilder.append(prefix);

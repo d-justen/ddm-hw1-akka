@@ -18,7 +18,7 @@ public class MetricsListener extends AbstractActor {
 	////////////////////////
 	// Actor Construction //
 	////////////////////////
-	
+
 	public static final String DEFAULT_NAME = "metricsListener";
 
 	public static Props props() {
@@ -28,7 +28,7 @@ public class MetricsListener extends AbstractActor {
 	/////////////////
 	// Actor State //
 	/////////////////
-	
+
 	private final LoggingAdapter log = Logging.getLogger(getContext().system(), this);
 	private final Cluster cluster = Cluster.get(getContext().system());
 	private final ClusterMetricsExtension extension = ClusterMetricsExtension.get(getContext().system());
@@ -36,7 +36,7 @@ public class MetricsListener extends AbstractActor {
 	/////////////////////
 	// Actor Lifecycle //
 	/////////////////////
-	
+
 	@Override
 	public void preStart() {
 		this.extension.subscribe(self());
@@ -50,15 +50,15 @@ public class MetricsListener extends AbstractActor {
 	////////////////////
 	// Actor Behavior //
 	////////////////////
-	
+
 	@Override
 	public Receive createReceive() {
-		return receiveBuilder()
-			.match(ClusterMetricsChanged.class, this::logMetrics)
-			.match(CurrentClusterState.class, message -> {/*Ignore*/})
-			.build();
+		return receiveBuilder().match(ClusterMetricsChanged.class, this::logMetrics)
+				.match(CurrentClusterState.class, message -> {
+					/* Ignore */})
+				.build();
 	}
-	
+
 	private void logMetrics(ClusterMetricsChanged clusterMetrics) {
 		for (NodeMetrics nodeMetrics : clusterMetrics.getNodeMetrics()) {
 			if (nodeMetrics.address().equals(this.cluster.selfAddress())) {

@@ -20,7 +20,7 @@ public class OctopusMaster extends OctopusSystem {
 	
 	public static final String MASTER_ROLE = "master";
 
-	public static void start(String actorSystemName, int workers, String host, int port, String filepath) {
+	public static void start(String actorSystemName, int workers, String host, int port, String filepath, int nrSlaves) {
 
 		final Config config = createConfiguration(actorSystemName, MASTER_ROLE, host, port, host, port);
 		
@@ -48,7 +48,7 @@ public class OctopusMaster extends OctopusSystem {
 		});
 		
 		try {
-			system.actorSelection("/user/" + Profiler.DEFAULT_NAME).tell(new Profiler.TaskMessage(readCSV(filepath)), ActorRef.noSender());
+			system.actorSelection("/user/" + Profiler.DEFAULT_NAME).tell(new Profiler.TaskMessage(readCSV(filepath), nrSlaves), ActorRef.noSender());
 		} catch (IOException e) {
 			e.printStackTrace();
 		}

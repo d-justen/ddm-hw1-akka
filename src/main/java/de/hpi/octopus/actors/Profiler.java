@@ -7,6 +7,7 @@ import akka.actor.AbstractActor;
 import akka.actor.ActorRef;
 import akka.actor.Props;
 import akka.actor.Terminated;
+import akka.cluster.Cluster;
 import akka.event.Logging;
 import akka.event.LoggingAdapter;
 import lombok.AllArgsConstructor;
@@ -38,6 +39,7 @@ public class Profiler extends AbstractActor {
 		private static final long serialVersionUID = -8330958742629706627L;
 		private TaskMessage() {}
 		private String[][] table;
+		private int nrSlaves;
 	}
 
 	@Data @AllArgsConstructor @SuppressWarnings("unused")
@@ -81,6 +83,7 @@ public class Profiler extends AbstractActor {
 	private final Queue<Object> unassignedWork = new LinkedList<>();
 	private final Queue<ActorRef> idleWorkers = new LinkedList<>();
 	private final Map<ActorRef, Object> busyWorkers = new HashMap<>();
+	private final Set<String> slaves = new HashSet<>();
 
 	private int[] passwords;
 	private int[] genePartners;
@@ -90,6 +93,9 @@ public class Profiler extends AbstractActor {
 	private boolean hashMiningStarted = false;
 	private long lastMax = 0;
 	private boolean solved = false;
+	private long startTime;
+	private int hashedPartners = 0;
+	private boolean taskStarted = false;
 
 	private TaskMessage task;
 
@@ -111,11 +117,35 @@ public class Profiler extends AbstractActor {
 				.build();
 	}
 
+	private void startTask() {
+		if (!taskStarted) {
+			taskStarted = true;
+			startTime = System.currentTimeMillis();
+			this.passwords = new int[task.table.length];
+			this.genePartners = new int[task.table.length];
+			this.prefixes = new int[task.table.length];
+			ArrayList<String> dna_seqs = new ArrayList<>();
+
+			for (int i = 0; i < task.table.length; i++) {
+				dna_seqs.add(task.table[i][3]);
+			}
+
+			for (int i = 0; i < task.table.length; i++) {
+				this.assign(new Worker.PasswordMessage(task.table[i][2], task.table[i][0]));
+				this.assign(new Worker.GeneMessage(i, dna_seqs));
+			}
+		}
+	}
+
 	private void handle(RegistrationMessage message) {
 		this.context().watch(this.sender());
-		
 		this.assign(this.sender());
-		this.log.info("Registered {}", this.sender());
+		String hostPort = this.sender().path().address().hostPort();
+		this.log.info("Registered {}, {}", this.sender(), hostPort);
+
+		if (!hostPort.equals(this.self().path().address().hostPort()) && slaves.add(hostPort))
+			log.info("Slave {} joined.", slaves.size());
+		if (task != null && slaves.size() == task.nrSlaves) startTask();
 	}
 	
 	private void handle(Terminated message) {
@@ -133,21 +163,9 @@ public class Profiler extends AbstractActor {
 	private void handle(TaskMessage message) {
 		if (this.task != null)
 			this.log.error("The profiler actor can process only one task in its current implementation!");
-		
+
 		this.task = message;
-		this.passwords = new int[message.table.length];
-		this.genePartners = new int[message.table.length];
-		this.prefixes = new int[message.table.length];
-		ArrayList<String> dna_seqs = new ArrayList<>();
-
-		for (int i=0; i<message.table.length; i++) {
-			dna_seqs.add(message.table[i][3]);
-		}
-
-		for (int i=0; i<message.table.length; i++) {
-			this.assign(new Worker.PasswordMessage(message.table[i][2], message.table[i][0]));
-			this.assign(new Worker.GeneMessage(i, dna_seqs));
-		}
+		if (task.nrSlaves == slaves.size()) startTask();
 	}
 	
 	private void handle(PasswordCompletionMessage message) {
@@ -201,7 +219,13 @@ public class Profiler extends AbstractActor {
 		this.busyWorkers.remove(worker);
 
 		this.log.info("Completed: [{},{},{}]", message.partner1, message.partner2, message.hash);
+		hashedPartners++;
 		this.assign(worker);
+
+		if (hashedPartners == nrGenePartners) {
+			this.log.info("All tasks completed in {} ms", System.currentTimeMillis() - startTime);
+			this.context().system().terminate();
+		}
 	}
 
 	private void assign(Object work) {
@@ -251,25 +275,5 @@ public class Profiler extends AbstractActor {
 		}
 
 		this.log.info("Start hash mining");
-	}
-	
-	private void report(Worker.PasswordMessage work) {
-		//this.log.info("UCC: {}", work.getHash());
-	}
-
-	private void split(Worker.PasswordMessage work) {
-		/*String[] x = work.getHash();
-
-		int next = x.length + y.length;
-		
-		if (next < this.task.getAttributes() - 1) {
-			int[] xNew = Arrays.copyOf(x, x.length + 1);
-			xNew[x.length] = next;
-			this.assign(new WorkMessage(xNew, y));
-			
-			int[] yNew = Arrays.copyOf(y, y.length + 1);
-			yNew[y.length] = next;
-			this.assign(new WorkMessage(x, yNew));
-		}*/
 	}
 }

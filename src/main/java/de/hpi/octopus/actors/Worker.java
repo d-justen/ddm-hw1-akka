@@ -90,6 +90,7 @@ public class Worker extends AbstractActor {
 	@Override
 	public void postStop() {
 		this.cluster.unsubscribe(this.self());
+		this.context().system().terminate();
 	}
 
 	////////////////////
@@ -211,7 +212,6 @@ public class Worker extends AbstractActor {
 				continue;
 
 			String longestOverlap = this.longestOverlap(sequences.get(thisIndex), sequences.get(otherIndex));
-
 			if (bestOverlap.length() < longestOverlap.length()) {
 				bestOverlap = longestOverlap;
 				bestOtherIndex = otherIndex;

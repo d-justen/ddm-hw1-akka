@@ -38,6 +38,10 @@ public class Profiler extends AbstractActor {
 		private static final long serialVersionUID = -8330958742629706627L;
 		private TaskMessage() {}
 		private String[][] table;
+
+		// public TaskMessage(String[][] s) {
+		// 	this.table = s;
+		// }
 	}
 
 	@Data @AllArgsConstructor @SuppressWarnings("unused")

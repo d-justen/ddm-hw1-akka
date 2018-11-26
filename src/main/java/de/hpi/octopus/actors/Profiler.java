@@ -39,10 +39,7 @@ public class Profiler extends AbstractActor {
 	@SuppressWarnings("unused")
 	public static class TaskMessage implements Serializable {
 		private static final long serialVersionUID = -8330958742629706627L;
-
-		private TaskMessage() {
-		}
-
+		private TaskMessage() {}
 		private String[][] columns;
 	}
 
@@ -125,11 +122,23 @@ public class Profiler extends AbstractActor {
 
 	@Override
 	public Receive createReceive() {
+		/*
 		return receiveBuilder().match(RegistrationMessage.class, this::handle).match(Terminated.class, this::handle)
 				.match(TaskMessage.class, this::handle).match(PasswordCompletionMessage.class, this::handle)
 				.match(LinearCompletionMessage.class, this::handle).match(GeneCompletionMessage.class, this::handle)
 				.match(HashMiningCompletionMessage.class, this::handle)
 				.matchAny(object -> this.log.info("Received unknown message: \"{}\"", object.toString())).build();
+		*/
+		return receiveBuilder()
+				.match(RegistrationMessage.class, this::handle)
+				.match(Terminated.class, this::handle)
+				.match(TaskMessage.class, this::handle).match(PasswordCompletionMessage.class, this::handle)
+				.match(PasswordCompletionMessage.class, this::handle)
+				.match(LinearCompletionMessage.class, this::handle)
+				.match(GeneCompletionMessage.class, this::handle)
+				.match(HashMiningCompletionMessage.class, this::handle)
+				.matchAny(object -> this.log.info("Received unknown message: \"{}\"", object.toString()))
+				.build();
 	}
 
 	private void handle(RegistrationMessage message) {
@@ -152,6 +161,7 @@ public class Profiler extends AbstractActor {
 	}
 
 	private void handle(TaskMessage message) {
+		System.out.println("Profiler handling TaskMessage");
 		if (this.task != null)
 			this.log.error("The profiler actor can process only one task in its current implementation!");
 
@@ -161,9 +171,10 @@ public class Profiler extends AbstractActor {
 		this.genePartners = new int[len];
 		this.prefixes = new int[len];
 
-		for (int i = 0; i < message.column.length; i++) {
-			this.assign(new Worker.PasswordMessage(message.columns[0][i]));
-			this.assign(new Worker.GeneMessage(message.columns[2][i]));
+		for (int i = 0; i < len; i++) {
+			System.out.println(i);
+			this.assign(new Worker.PasswordMessage(message.columns[0][i], Integer.toString(i)));
+			// this.assign(new Worker.GeneMessage(message.columns[2][i]));
 		}
 	}
 

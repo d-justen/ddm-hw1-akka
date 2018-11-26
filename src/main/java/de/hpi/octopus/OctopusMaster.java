@@ -10,6 +10,8 @@ import java.util.Scanner;
 
 import com.typesafe.config.Config;
 
+import akka.event.Logging;
+import akka.event.LoggingAdapter;
 import akka.actor.ActorRef;
 import akka.actor.ActorSystem;
 import akka.cluster.Cluster;
@@ -38,50 +40,16 @@ public class OctopusMaster extends OctopusSystem {
 
 				for (int i = 0; i < workers; i++)
 					system.actorOf(Worker.props(), Worker.DEFAULT_NAME + i);
+
+				String[][] input_csv = readCSV_by_column(filepath);
+				if (input_csv != null) {
+					// https://stackoverflow.com/questions/18228846/actor-replying-to-non-actor
+					system.actorSelection("/user/" + Profiler.DEFAULT_NAME).tell(new Profiler.TaskMessage(input_csv),
+							ActorRef.noSender());
+				}
 			}
 		});
 
-		boolean exit = false;
-		String s;
-
-		while (!exit) {
-			System.out.println(
-					"\nplease select what to calcultate.\nOptions are \'password\',\'gene\', \'linear\', \'hash\' and \'exit\''");
-
-			Scanner scan = new Scanner(System.in);
-			s = scan.nextLine();
-			if (s == "exit") {
-				// exit program
-				exit = true;
-			}
-			if (s == "password" || s == "gene" || s == "linear" || s == "hash") {
-				// actuall do stuff
-				String[][] input_csv;
-				switch (s) {
-				case "password":
-					input_csv = readCSV_by_column(filepath);
-					if (input_csv != null) {
-						system.actorSelection("/user/" + Profiler.DEFAULT_NAME)
-								.tell(new Profiler.TaskMessage(input_csv), ActorRef.noSender());
-					}
-					break;
-				case "gene":
-					input_csv = readCSV_by_column(filepath);
-					if (input_csv != null) {
-						// do stuff
-					}
-					break;
-				case "linear":
-					// do stuff
-					break;
-				case "hash":
-					// do stuff
-				}
-			} else {
-				// invalid user choice
-				System.out.println("invalid choice!");
-			}
-		}
 	}
 
 	private static String[][] readCSV_by_column(String path) {
@@ -112,6 +80,8 @@ public class OctopusMaster extends OctopusSystem {
 
 			String[][] result = { name.toArray(new String[name.size()]), name.toArray(new String[pwds.size()]),
 					name.toArray(new String[gene.size()]) };
+			System.out.println("sucessfully read csv file " + path);
+			System.out.println(result);
 			return result;
 		} catch (IOException ioe) {
 			System.out.println("IOException thrown!");

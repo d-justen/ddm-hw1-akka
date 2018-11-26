@@ -221,14 +221,14 @@ public class Worker extends AbstractActor {
 		}
 	}
 
-	private int longestOverlapPartner(int thisIndex, List<String> sequences) {
+	private int longestOverlapPartner(int thisIndex, String[] sequences) {
 		int bestOtherIndex = -1;
 		String bestOverlap = "";
-		for (int otherIndex = 0; otherIndex < sequences.size(); otherIndex++) {
+		for (int otherIndex = 0; otherIndex < sequences.length; otherIndex++) {
 			if (otherIndex == thisIndex)
 				continue;
 
-			String longestOverlap = this.longestOverlap(sequences.get(thisIndex), sequences.get(otherIndex));
+			String longestOverlap = this.longestOverlap(sequences[thisIndex], sequences[otherIndex]);
 
 			if (bestOverlap.length() < longestOverlap.length()) {
 				bestOverlap = longestOverlap;

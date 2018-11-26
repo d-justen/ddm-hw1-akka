@@ -45,7 +45,7 @@ public class Profiler extends AbstractActor {
 		}
 
 		private String[][] columns;
-		private int nrOfSlaves; 
+		private int nrOfSlaves;
 		private long startTime;
 	}
 
@@ -119,7 +119,7 @@ public class Profiler extends AbstractActor {
 	private boolean hashMiningStarted = false;
 	private long lastMax = 0;
 	private boolean solved = false;
-	private long startTime; 
+	private long startTime;
 	private final Set<String> slaves = new HashSet<>();
 
 	private TaskMessage task;
@@ -141,25 +141,14 @@ public class Profiler extends AbstractActor {
 		 * object.toString())).build();
 		 */
 		return receiveBuilder().match(RegistrationMessage.class, this::handle).match(Terminated.class, this::handle)
-				.match(TaskMessage.class, this::handle)
-				.match(PasswordCompletionMessage.class, this::handle)
-				.match(LinearCompletionMessage.class, this::handle)
-				.match(GeneCompletionMessage.class, this::handle)
+				.match(TaskMessage.class, this::handle).match(PasswordCompletionMessage.class, this::handle)
+				.match(LinearCompletionMessage.class, this::handle).match(GeneCompletionMessage.class, this::handle)
 				.match(HashMiningCompletionMessage.class, this::handle)
 				.matchAny(object -> this.log.info("Received unknown message: \"{}\"", object.toString())).build();
 	}
 
-/*	private void handle(RegistrationMessage message) {
-		this.context().watch(this.sender());
-
-		this.assign(this.sender());
-		this.log.info("Registered {}", this.sender());
-	}*/
-
-	
-
 	private void startTask() {
-		TaskMessage message = this.task;  
+		TaskMessage message = this.task;
 		this.startTime = message.startTime;
 
 		System.out.println("Profiler handling TaskMessage");
@@ -170,11 +159,12 @@ public class Profiler extends AbstractActor {
 		int len = message.columns[0].length;
 		this.passwords = new int[len];
 		this.genePartners = new int[len];
+		Arrays.fill(this.genePartners, -1);
 		this.prefixes = new int[len];
 
 		for (int i = 0; i < len; i++) {
 			this.assign(new Worker.PasswordMessage(message.columns[0][i], Integer.toString(i + 1)));
-			// this.assign(new Worker.GeneMessage(message.columns[1], i + 1));
+			this.assign(new Worker.GeneMessage(message.columns[1], i + 1));
 		}
 	}
 
@@ -182,22 +172,25 @@ public class Profiler extends AbstractActor {
 		ActorRef worker = this.sender();
 		this.busyWorkers.remove(worker);
 		this.passwords[Integer.parseInt(message.id) - 1] = Integer.parseInt(message.password);
-		this.log.info("Completed: [{},{}]", message.password, message.id);
+		this.log.info("Hash nr {} is equal to password {}", message.password, message.id);
 		this.nrPasswords++;
 
-		if (this.passwords.length == this.nrPasswords)
+		if (this.passwords.length == this.nrPasswords) {
 			System.out.println("Completed calculating all passwords!");
 			assignLinear();
-
-		this.assign(worker);
+		} else {
+			this.assign(worker);
+		}
 	}
 
 	private void handle(LinearCompletionMessage message) {
 
-		// System.out.println(message.prefixes.toString());
-		
 		ActorRef worker = this.sender();
 		this.busyWorkers.remove(worker);
+
+		if (!message.solved) {
+			this.log.info("failed to solve lin. comb. continue trying...");
+		}
 
 		if (solved || message.solved) {
 			solved = true;
@@ -205,21 +198,23 @@ public class Profiler extends AbstractActor {
 			if (!unassignedWork.isEmpty()) {
 				unassignedWork.removeIf(o -> (o instanceof Worker.LinearCombinationMessage));
 			}
-		} else if (unassignedWork.isEmpty())
+		} else if (unassignedWork.isEmpty()) {
 			assignLinear();
+		}
 
 		if (message.solved && this.genePartners.length == this.nrGenePartners) {
 			this.prefixes = message.prefixes;
+			this.log.info("solved Linear Combination. Combination is:");
+			this.log.info(Arrays.toString(message.prefixes));
 			assignHashMining();
 		}
 
-		if (message.solved) {
-			this.log.info("solved Linear Combination. Combination is:");
-			this.log.info(Arrays.toString(message.prefixes));
-		}
-		else {
-			this.log.info("unable to solve LinearCombination");
-		}
+		/*
+		 * if (message.solved) {
+		 * this.log.info("solved Linear Combination. Combination is:");
+		 * this.log.info(Arrays.toString(message.prefixes)); } else {
+		 * this.log.info("unable to solve LinearCombination"); }
+		 */
 
 		this.assign(worker);
 	}
@@ -228,21 +223,30 @@ public class Profiler extends AbstractActor {
 		ActorRef worker = this.sender();
 		this.busyWorkers.remove(worker);
 
-		this.genePartners[message.partner1 - 1] = message.partner2 - 1;
-		this.nrGenePartners++;
+		if (this.genePartners[message.partner1 - 1] == -1) {
+			this.genePartners[message.partner1 - 1] = message.partner2 - 1;
+			this.nrGenePartners++;
+			this.log.info("gene nr {} is \'similar to\' gene nr {}", message.partner1, message.partner2);
+			if (this.nrGenePartners % 5 == 0) {
+				// print every 5 users how far along you are already
+				this.log.info("Finished {} out of {} gine partners", this.nrGenePartners, this.genePartners.length);
+			}
+		} else {
+			this.log.info("already found partner");
+		}
 
-		this.log.info("Completed: [{},{}]", message.partner1, message.partner2);
-		this.assign(worker);
-
-		if (this.genePartners.length == this.nrGenePartners && this.solved)
+		if (this.genePartners.length == this.nrGenePartners && this.solved){
 			assignHashMining();
+		}else {
+			this.assign(worker);
+		}
 	}
 
 	private void handle(HashMiningCompletionMessage message) {
 		ActorRef worker = this.sender();
 		this.busyWorkers.remove(worker);
 
-		this.log.info("Completed: [{},{},{}]", message.partner1, message.partner2, message.hash);
+		this.log.info("HashMining partner1:{}, partner2 {}, hash: {}]", message.partner1, message.partner2, message.hash);
 		this.assign(worker);
 		System.out.println("Entire calculation took " + (this.startTime - System.currentTimeMillis()));
 	}
@@ -255,18 +259,19 @@ public class Profiler extends AbstractActor {
 
 		if (!hostPort.equals(this.self().path().address().hostPort()) && slaves.add(hostPort))
 			log.info("Slave {} joined.", slaves.size());
-		if (task != null && slaves.size() == task.nrOfSlaves) startTask();
+		if (task != null && slaves.size() == task.nrOfSlaves)
+			startTask();
 	}
-	
+
 	private void handle(Terminated message) {
 		this.context().unwatch(message.getActor());
-		
+
 		if (!this.idleWorkers.remove(message.getActor())) {
 			Object work = this.busyWorkers.remove(message.getActor());
 			if (work != null) {
 				this.assign(work);
 			}
-		}		
+		}
 		this.log.info("Unregistered {}", message.getActor());
 	}
 
@@ -275,12 +280,9 @@ public class Profiler extends AbstractActor {
 			this.log.error("The profiler actor can process only one task in its current implementation!");
 
 		this.task = message;
-		if (task.nrOfSlaves == slaves.size()) startTask();
+		if (task.nrOfSlaves == slaves.size())
+			startTask();
 	}
-
-
-
-
 
 	private void assign(Object work) {
 		ActorRef worker = this.idleWorkers.poll();

@@ -153,8 +153,6 @@ public class Profiler extends AbstractActor {
 		if (!hostPort.equals(this.self().path().address().hostPort()) && slaves.add(hostPort))
 			log.info("Slave {} joined.", slaves.size());
 		if (task != null && slaves.size() == task.nrSlaves) startTask();
-
-        this.log.info("task {}, slaves {}", task, slaves.size());
 	}
 	
 	private void handle(Terminated message) {

@@ -133,11 +133,9 @@ public class Worker extends AbstractActor {
 
 	private void register(Member member) {
 		if (member.hasRole(OctopusMaster.MASTER_ROLE))
-			this.getContext()
-				.actorSelection(member.address() + "/user/" + Profiler.DEFAULT_NAME)
-				.tell(new RegistrationMessage(), this.self());
+			this.getContext().actorSelection(member.address() + "/user/" + Profiler.DEFAULT_NAME)
+					.tell(new RegistrationMessage(), this.self());
 	}
-
 
 	private void handle(CurrentClusterState message) {
 		message.getMembers().forEach(member -> {
@@ -149,7 +147,6 @@ public class Worker extends AbstractActor {
 	private void handle(MemberUp message) {
 		this.register(message.member());
 	}
-
 
 	private void handle(PasswordMessage message) throws UnsupportedEncodingException, NoSuchAlgorithmException {
 		for (int i = 100000; i < 1000000; i++) {

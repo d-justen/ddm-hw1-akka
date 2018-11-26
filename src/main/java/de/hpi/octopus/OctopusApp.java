@@ -90,7 +90,7 @@ public class OctopusApp {
         @Parameter(names = { "-i", "--input" }, description = "location of the input file", required = false)
         String input = DEFAULT_PATH;
 
-        @Parameter(names = {"-s", "--slaves"}, description = "number of slaves", required = false)
+        @Parameter(names = { "-s", "--slaves" }, description = "number of slaves", required = false)
         int slaves = NUMBER_OF_SLAVES;
     }
 

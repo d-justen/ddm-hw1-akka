@@ -235,9 +235,9 @@ public class Profiler extends AbstractActor {
 			this.log.info("already found partner");
 		}
 
-		if (this.genePartners.length == this.nrGenePartners && this.solved){
+		if (this.genePartners.length == this.nrGenePartners && this.solved) {
 			assignHashMining();
-		}else {
+		} else {
 			this.assign(worker);
 		}
 	}
@@ -246,7 +246,8 @@ public class Profiler extends AbstractActor {
 		ActorRef worker = this.sender();
 		this.busyWorkers.remove(worker);
 
-		this.log.info("HashMining partner1:{}, partner2 {}, hash: {}]", message.partner1, message.partner2, message.hash);
+		this.log.info("HashMining partner1:{}, partner2 {}, hash: {}]", message.partner1, message.partner2,
+				message.hash);
 		this.assign(worker);
 		System.out.println("Entire calculation took " + (this.startTime - System.currentTimeMillis()));
 	}

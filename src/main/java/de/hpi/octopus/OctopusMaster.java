@@ -58,32 +58,34 @@ public class OctopusMaster extends OctopusSystem {
 			return null;
 		}
 		try {
-			BufferedReader br = new BufferedReader(new FileReader(path));
-			String line = br.readLine();
+			BufferedReader buffRe = new BufferedReader(new FileReader(path));
+			String line = buffRe.readLine();
 			ArrayList<String[]> table = new ArrayList<>();
-			boolean header = true;
-			ArrayList<String> name = new ArrayList<>();
-			ArrayList<String> pwds = new ArrayList<>();
+			// boolean header = false; // not needed 
+			// we do not need the names, as long as the csv is ordered
+			// ArrayList<String> name = new ArrayList<>();
+			ArrayList<String> hash = new ArrayList<>();
 			ArrayList<String> gene = new ArrayList<>();
 
-			while ((line = br.readLine()) != null) {
-				if (header == false) {
-					if (!line.isEmpty()) {
-						String[] row = line.split(";");
-						name.add(row[1]);
-						pwds.add(row[2]);
-						gene.add(row[3]);
-					}
+			while ((line = buffRe.readLine()) != null) {
+				// if (header == false) {
+				if (!line.isEmpty()) {
+					String[] row = line.split(";");
+					// name.add(row[1]);
+					hash.add(row[2]);
+					gene.add(row[3]);
 				}
-				header = false;
+				// header = false;
 			}
 
-			String[][] result = { name.toArray(new String[name.size()]), name.toArray(new String[pwds.size()]),
-					name.toArray(new String[gene.size()]) };
+			int len = hash.size();
+			// name.toArray(new String[len])
+			String[][] result = { hash.toArray(new String[len]), gene.toArray(new String[len]) };
 			System.out.println("sucessfully read csv file " + path);
-			System.out.println(result);
 			return result;
-		} catch (IOException ioe) {
+		} catch (
+
+		IOException ioe) {
 			System.out.println("IOException thrown!");
 			ioe.printStackTrace();
 			return null;

@@ -43,11 +43,9 @@ public class Worker extends AbstractActor {
 	@SuppressWarnings("unused")
 	public static class PasswordMessage implements Serializable {
 		private static final long serialVersionUID = -7643194361868862396L;
-
-		private PasswordMessage() {
-		}
-
-		private String hash, id;
+		private PasswordMessage() {}
+		private String pwd_hash;
+		private String id;
 	}
 
 	@Data
@@ -144,7 +142,7 @@ public class Worker extends AbstractActor {
 	private void handle(PasswordMessage message) throws UnsupportedEncodingException, NoSuchAlgorithmException {
 		for (int i = 100000; i < 1000000; i++) {
 			String hashed = hash(Integer.toString(i));
-			if (hashed.equals(message.hash.toLowerCase())) {
+			if (hashed.equals(message.pwd_hash.toLowerCase())) {
 				this.sender().tell(new Profiler.PasswordCompletionMessage(Integer.toString(i), message.id),
 						this.self());
 				return;

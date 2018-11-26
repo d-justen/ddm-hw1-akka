@@ -132,7 +132,8 @@ public class Profiler extends AbstractActor {
 		return receiveBuilder()
 				.match(RegistrationMessage.class, this::handle)
 				.match(Terminated.class, this::handle)
-				.match(TaskMessage.class, this::handle).match(PasswordCompletionMessage.class, this::handle)
+				.match(TaskMessage.class, this::handle)
+				// .match(TaskMessage.class, this::handle).match(PasswordCompletionMessage.class, this::handle)
 				.match(PasswordCompletionMessage.class, this::handle)
 				.match(LinearCompletionMessage.class, this::handle)
 				.match(GeneCompletionMessage.class, this::handle)
@@ -172,8 +173,9 @@ public class Profiler extends AbstractActor {
 		this.prefixes = new int[len];
 
 		for (int i = 0; i < len; i++) {
-			System.out.println(i);
-			this.assign(new Worker.PasswordMessage(message.columns[0][i], Integer.toString(i)));
+			// password message does not seem to work
+			// Worker can not really handle it
+			this.assign(new Worker.PasswordMessage(message.columns[0][i], Integer.toString(i + 1)));
 			// this.assign(new Worker.GeneMessage(message.columns[2][i]));
 		}
 	}
@@ -181,11 +183,11 @@ public class Profiler extends AbstractActor {
 	private void handle(PasswordCompletionMessage message) {
 		ActorRef worker = this.sender();
 		this.busyWorkers.remove(worker);
-		passwords[Integer.parseInt(message.id) - 1] = Integer.parseInt(message.password);
+		this.passwords[Integer.parseInt(message.id) - 1] = Integer.parseInt(message.password);
 		this.log.info("Completed: [{},{}]", message.password, message.id);
-		nrPasswords++;
+		this.nrPasswords++;
 
-		if (passwords.length == nrPasswords)
+		if (this.passwords.length == this.nrPasswords)
 			assignLinear();
 
 		this.assign(worker);

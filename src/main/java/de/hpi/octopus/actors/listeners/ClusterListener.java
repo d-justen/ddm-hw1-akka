@@ -10,6 +10,7 @@ import akka.cluster.ClusterEvent.MemberRemoved;
 import akka.cluster.ClusterEvent.UnreachableMember;
 import akka.event.Logging;
 import akka.event.LoggingAdapter;
+import de.hpi.octopus.actors.Reaper;
 
 public class ClusterListener extends AbstractActor {
 
@@ -37,6 +38,7 @@ public class ClusterListener extends AbstractActor {
 	@Override
 	public void preStart() {
 		this.cluster.subscribe(this.self(), MemberEvent.class, UnreachableMember.class);
+		Reaper.watchWithDefaultReaper(this);
 	}
 
 	@Override

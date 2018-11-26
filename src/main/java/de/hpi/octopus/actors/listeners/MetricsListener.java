@@ -47,7 +47,6 @@ public class MetricsListener extends AbstractActor {
 	@Override
 	public void postStop() {
 		this.extension.unsubscribe(self());
-		this.context().system().terminate();
 	}
 
 	////////////////////

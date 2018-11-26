@@ -5,8 +5,10 @@ import java.util.*;
 
 import akka.actor.*;
 import akka.cluster.Cluster;
+import akka.cluster.ClusterEvent;
 import akka.event.Logging;
 import akka.event.LoggingAdapter;
+import de.hpi.octopus.actors.listeners.ClusterListener;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
@@ -112,6 +114,12 @@ public class Profiler extends AbstractActor {
 				.match(HashMiningCompletionMessage.class, this::handle)
 				.matchAny(object -> this.log.info("Received unknown message: \"{}\"", object.toString()))
 				.build();
+	}
+
+	@Override
+	public void preStart() throws Exception{
+		super.preStart();
+		Reaper.watchWithDefaultReaper(this);
 	}
 
 	private void startTask() {
@@ -226,7 +234,8 @@ public class Profiler extends AbstractActor {
 				busyWorkers.forEach((k, v) -> k.tell(PoisonPill.getInstance(), this.self()));
 			idleWorkers.forEach(e -> e.tell(PoisonPill.getInstance(), this.self()));
 
-			this.context().system().terminate();
+			this.getContext().getSystem().actorSelection("/user/" + ClusterListener.DEFAULT_NAME).tell(PoisonPill.getInstance(), this.self());
+			this.getSelf().tell(PoisonPill.getInstance(), this.getSelf());
 		}
 	}
 

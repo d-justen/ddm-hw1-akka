@@ -205,6 +205,12 @@ public class Profiler extends AbstractActor {
 		ActorRef worker = this.sender();
 		this.busyWorkers.remove(worker);
 
+		if (!unassignedWork.isEmpty()) {
+			unassignedWork.removeIf(o -> (o instanceof Worker.LinearCombinationMessage));
+		}
+		assignHashMining();
+
+		/*
 		if (!message.solved) {
 			this.log.info("failed to solve lin. comb. continue trying...");
 		}
@@ -226,6 +232,7 @@ public class Profiler extends AbstractActor {
 		} else {
 			this.assign(worker);
 		}
+		*/
 	}
 
 	private void handle(GeneCompletionMessage message) {
@@ -329,12 +336,13 @@ public class Profiler extends AbstractActor {
 	}
 
 	private void assignLinear() {
-		for (int i = 0; i < 100; i++) {
+		assign(new Worker.LinearCombinationMessage(0, 0, passwords));
+		/*for (int i = 0; i < 100; i++) {
 			long newMin = lastMax + 10000000 * i;
 			long newMax = lastMax + 10000000 * (i + 1);
 			assign(new Worker.LinearCombinationMessage(newMin, newMax, passwords));
 		}
-		lastMax += 1000000000;
+		lastMax += 1000000000;*/
 	}
 
 	private void assignHashMining() {

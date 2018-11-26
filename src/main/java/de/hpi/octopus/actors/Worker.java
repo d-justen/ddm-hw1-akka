@@ -9,6 +9,7 @@ import java.util.Random;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.ArrayList;
+import java.util.stream.*;
 
 import akka.actor.AbstractActor;
 import akka.actor.Props;
@@ -151,42 +152,115 @@ public class Worker extends AbstractActor {
 	}
 
 	private void handle(PasswordMessage message) throws UnsupportedEncodingException, NoSuchAlgorithmException {
-	    for (int i=100000; i<1000000; i++) {
-	        String hashed = hash(Integer.toString(i));
-	        if (hashed.equals(message.pwd_hash.toLowerCase())) {
-	            this.sender().tell(new Profiler.PasswordCompletionMessage(Integer.toString(i), message.id), this.self());
-	            return;
-            }
-        }
-        this.sender().tell(new Profiler.PasswordCompletionMessage("", "-1"), this.self());
-	}
-	
-	
-	private void handle(LinearCombinationMessage message) {
-		int[] prefixes = new int[message.passwords.length];
-
-		for (long i = message.min; i < message.max; i++) {
-			String bin = Long.toBinaryString(i);
-			for (int j = 0; j < prefixes.length; j++)
-				prefixes[j] = 1;
-
-			int count = 0;
-			for (int k = bin.length() - 1; k >= 0; k--) {
-				if (bin.charAt(k) == '1')
-					prefixes[count] = -1;
-				count++;
-			}
-			int sum = 0;
-			for (int l = 0; l < message.passwords.length; l++) {
-				sum += prefixes[l] * message.passwords[l];
-			}
-			if (sum == 0) {
-				this.sender().tell(new Profiler.LinearCompletionMessage(true, prefixes), this.self());
+		for (int i = 100000; i < 1000000; i++) {
+			String hashed = hash(Integer.toString(i));
+			if (hashed.equals(message.pwd_hash.toLowerCase())) {
+				this.sender().tell(new Profiler.PasswordCompletionMessage(Integer.toString(i), message.id),
+						this.self());
 				return;
 			}
 		}
-		this.sender().tell(new Profiler.LinearCompletionMessage(false, null), this.self());
+		this.sender().tell(new Profiler.PasswordCompletionMessage("", "-1"), this.self());
 	}
+
+	private static boolean recursion(int pos, int n, int sum, int[] sequence, int baseSum, List<List<Integer>> dp) {
+		
+		System.out.println(4);
+		if (pos == n) {
+			if (sum == baseSum) {
+				return true;
+			} else {
+				return false;
+			}
+		}
+
+		System.out.println(5);
+		if (dp.get(pos).get(sum) != -1) {
+			return dp.get(pos).set(sum, 1) == 1;
+		}
+
+		System.out.println(6);
+		boolean resultTakingPositive = recursion(pos + 1, n, sum + sequence[pos], sequence, baseSum, dp);
+		boolean resultTakingNegative = recursion(pos + 1, n, sum - sequence[pos], sequence, baseSum, dp);
+		System.out.println(7);
+		if (resultTakingPositive || resultTakingNegative) {
+			System.out.println(8);
+			System.out.println("sum: " + sum);
+			System.out.println("pos: "  + pos);
+			System.out.println("len: " + dp.size());
+			dp.get(pos).set(sum, 1);
+			System.out.println(9);
+		} else {
+			System.out.println(10);
+			System.out.println("sum: " + sum);
+			System.out.println("pos: "  + pos);
+			System.out.println("len: " + dp.size());
+			dp.get(pos).set(sum, 0);
+			System.out.println(11);
+		}
+
+		System.out.println(12);
+		return dp.get(pos).get(sum) == 1;
+	}
+
+	void printSolution(int pos, int n, int sum, int[] sequence, int baseSum, List<List<Integer>> dp) {
+		if (pos == n) {
+			return;
+		}
+		boolean resultTakingPositive = recursion(pos + 1, n, sum + sequence[pos], sequence, baseSum, dp);
+		if (resultTakingPositive == true) {
+			System.out.print("+ ");
+			printSolution(pos + 1, n, sum + sequence[pos], sequence, baseSum, dp);
+		} else {
+			System.out.print("- ");
+			printSolution(pos + 1, n, sum - sequence[pos], sequence, baseSum, dp);
+		}
+	}
+
+	private void handle(LinearCombinationMessage message) {
+		int[] sequence = message.passwords;
+		int baseSum = IntStream.of(sequence).sum();
+		int n = sequence.length;
+
+		// int[][] dp = new int[n][2 * baseSum + 1];
+
+		System.out.println(0);
+
+		List<List<Integer>> dp = new ArrayList<List<Integer>>(n);
+
+		System.out.println(1);
+
+		for (int i = 0; i < n ; i ++){
+			// List<Integer> list = Collections.nCopies(2 * baseSum, -1);
+			// dp.add(list);
+			dp.add(new ArrayList<>(Collections.nCopies(2 * baseSum, -1)));
+		}
+
+		System.out.println(3);
+
+		if (recursion(0, n, baseSum, sequence, baseSum, dp)) { // if possible to make sum 0 then
+			this.log.info("the following signs have to be assigned: ");
+			printSolution(0, n, baseSum, sequence, baseSum, dp);
+			this.sender().tell(new Profiler.LinearCompletionMessage(true, null), this.self()); return;
+		}
+	}
+
+	/*
+	 * // deprecated, default solution private void handle(LinearCombinationMessage
+	 * message) { int[] prefixes = new int[message.passwords.length];
+	 * 
+	 * for (long i = message.min; i < message.max; i++) { String bin =
+	 * Long.toBinaryString(i); for (int j = 0; j < prefixes.length; j++) prefixes[j]
+	 * = 1;
+	 * 
+	 * int count = 0; for (int k = bin.length() - 1; k >= 0; k--) { if
+	 * (bin.charAt(k) == '1') prefixes[count] = -1; count++; } int sum = 0; for (int
+	 * l = 0; l < message.passwords.length; l++) { sum += prefixes[l] *
+	 * message.passwords[l]; } if (sum == 0) { this.sender().tell(new
+	 * Profiler.LinearCompletionMessage(true, prefixes), this.self()); return; } }
+	 * this.sender().tell(new Profiler.LinearCompletionMessage(false, null),
+	 * this.self()); }
+	 */
 
 	private void handle(GeneMessage message) {
 		int partner = longestOverlapPartner(message.index, message.dna_seqs);

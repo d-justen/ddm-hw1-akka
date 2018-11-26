@@ -12,8 +12,21 @@ import akka.cluster.metrics.StandardMetrics.Cpu;
 import akka.cluster.metrics.ClusterMetricsExtension;
 import akka.event.Logging;
 import akka.event.LoggingAdapter;
+import akka.actor.PoisonPill;
+import de.hpi.octopus.messages.ShutdownMessage;
+import de.hpi.octopus.actors.Reaper;
 
 public class MetricsListener extends AbstractActor {
+
+	////////////////////
+	// Reaper pattern //
+	////////////////////
+	
+	private void handle(ShutdownMessage message) {
+		// We could write all primes to disk here
+		
+		this.getSelf().tell(PoisonPill.getInstance(), this.getSelf());
+	}
 
 	////////////////////////
 	// Actor Construction //
@@ -40,6 +53,8 @@ public class MetricsListener extends AbstractActor {
 	@Override
 	public void preStart() {
 		this.extension.subscribe(self());
+		// Register at this actor system's reaper
+		Reaper.watchWithDefaultReaper(this);
 	}
 
 	@Override

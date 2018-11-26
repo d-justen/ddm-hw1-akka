@@ -8,10 +8,26 @@ import akka.cluster.ClusterEvent.MemberEvent;
 import akka.cluster.ClusterEvent.MemberUp;
 import akka.cluster.ClusterEvent.MemberRemoved;
 import akka.cluster.ClusterEvent.UnreachableMember;
+import de.hpi.octopus.messages.ShutdownMessage;
 import akka.event.Logging;
 import akka.event.LoggingAdapter;
+import akka.actor.PoisonPill;
+
+import de.hpi.octopus.actors.Reaper;
+
 
 public class ClusterListener extends AbstractActor {
+
+	////////////////////
+	// Reaper Pattern // 
+	////////////////////
+
+	private void handle(ShutdownMessage message) {
+		// We could write all primes to disk here
+		
+		this.getSelf().tell(PoisonPill.getInstance(), this.getSelf());
+	}
+
 
 	////////////////////////
 	// Actor Construction //
@@ -37,6 +53,8 @@ public class ClusterListener extends AbstractActor {
 	@Override
 	public void preStart() {
 		this.cluster.subscribe(this.self(), MemberEvent.class, UnreachableMember.class);
+		// Register at this actor system's reaper
+		Reaper.watchWithDefaultReaper(this);
 	}
 
 	@Override
@@ -58,8 +76,10 @@ public class ClusterListener extends AbstractActor {
 			this.log.info("Member detected as unreachable: {}", mUnreachable.member());
 		}).match(MemberRemoved.class, mRemoved -> {
 			this.log.info("Member is Removed: {}", mRemoved.member());
-		}).match(MemberEvent.class, message -> {
-			// ignore
+		})
+		.match(ShutdownMessage.class, this::handle)
+		.match(MemberEvent.class, message -> {
+			this.log.info("ClusterListener received unknown message");
 		}).build();
 	}
 }

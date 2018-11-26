@@ -8,12 +8,48 @@ import akka.actor.ActorRef;
 import akka.actor.Props;
 import akka.actor.Terminated;
 import akka.event.Logging;
-import de.hpi.octopus.actors.Profiler.RegistrationMessage;
 import akka.event.LoggingAdapter;
+
+import de.hpi.octopus.actors.Profiler.RegistrationMessage;
+import de.hpi.octopus.actors.listeners.ClusterListener;
+import de.hpi.octopus.messages.ShutdownMessage;
+import de.hpi.octopus.actors.Reaper;
+
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import akka.actor.PoisonPill;
 
 public class Profiler extends AbstractActor {
+
+	ClusterListener listener;
+
+	Profiler(ClusterListener listener) {
+		super();
+		this.listener = listener;
+	}
+
+	////////////////////
+	// Reaper Pattern //
+	////////////////////
+
+	@Override
+	public void preStart() throws Exception {
+		super.preStart();
+
+		// Register at this actor system's reaper
+		Reaper.watchWithDefaultReaper(this);
+	}
+
+	@Override
+	public void postStop() throws Exception {
+		super.postStop();
+
+		// If the master has stopped, it can also stop the listener
+		this.listener.tell(PoisonPill.getInstance(), this.getSelf());
+
+		// Log the stop event
+		this.log.info("Stopped Profiler");
+	}
 
 	////////////////////////
 	// Actor Construction //

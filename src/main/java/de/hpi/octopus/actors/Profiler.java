@@ -188,8 +188,9 @@ public class Profiler extends AbstractActor {
 		this.log.info("Hash nr {} is equal to password {}", message.id, message.password);
 		this.nrPasswords++;
 
-		System.out.println(".length is " + Integer.toString(this.passwords.length) + " nrPasswords i "
-				+ Integer.toString(this.nrPasswords));
+		// System.out.println(".length is " + Integer.toString(this.passwords.length) +
+		// " nrPasswords is "
+		// + Integer.toString(this.nrPasswords));
 
 		if (this.passwords.length == this.nrPasswords) {
 			System.out.println("Completed calculating all passwords!");
@@ -351,24 +352,19 @@ public class Profiler extends AbstractActor {
 		this.log.info("Start hash mining");
 	}
 	/*
-	private void report(Worker.PasswordMessage work) {
-		this.log.info("UCC: {}", work.getHash());
-	}
-
-	private void split(Worker.PasswordMessage work) {
-
-		String[] x = work.getHash();
-
-		int next = x.length + y.length;
-
-		if (next < this.task.getAttributes() - 1) {
-			int[] xNew = Arrays.copyOf(x, x.length + 1);
-			xNew[x.length] = next;
-			this.assign(new WorkMessage(xNew, y));
-
-			int[] yNew = Arrays.copyOf(y, y.length + 1);
-			yNew[y.length] = next;
-			this.assign(new WorkMessage(x, yNew));
-		}
-	}*/
+	 * private void report(Worker.PasswordMessage work) { this.log.info("UCC: {}",
+	 * work.getHash()); }
+	 * 
+	 * private void split(Worker.PasswordMessage work) {
+	 * 
+	 * String[] x = work.getHash();
+	 * 
+	 * int next = x.length + y.length;
+	 * 
+	 * if (next < this.task.getAttributes() - 1) { int[] xNew = Arrays.copyOf(x,
+	 * x.length + 1); xNew[x.length] = next; this.assign(new WorkMessage(xNew, y));
+	 * 
+	 * int[] yNew = Arrays.copyOf(y, y.length + 1); yNew[y.length] = next;
+	 * this.assign(new WorkMessage(x, yNew)); } }
+	 */
 }

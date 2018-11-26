@@ -3,10 +3,7 @@ package de.hpi.octopus.actors;
 import java.io.Serializable;
 import java.util.*;
 
-import akka.actor.AbstractActor;
-import akka.actor.ActorRef;
-import akka.actor.Props;
-import akka.actor.Terminated;
+import akka.actor.*;
 import akka.cluster.Cluster;
 import akka.event.Logging;
 import akka.event.LoggingAdapter;
@@ -224,6 +221,11 @@ public class Profiler extends AbstractActor {
 
 		if (hashedPartners == nrGenePartners) {
 			this.log.info("All tasks completed in {} ms", System.currentTimeMillis() - startTime);
+
+			if (!busyWorkers.isEmpty())
+				busyWorkers.forEach((k, v) -> k.tell(PoisonPill.getInstance(), this.self()));
+			idleWorkers.forEach(e -> e.tell(PoisonPill.getInstance(), this.self()));
+
 			this.context().system().terminate();
 		}
 	}

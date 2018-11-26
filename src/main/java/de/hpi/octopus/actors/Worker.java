@@ -6,6 +6,9 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.List;
 import java.util.Random;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.ArrayList;
 
 import akka.actor.AbstractActor;
 import akka.actor.Props;
@@ -16,6 +19,7 @@ import akka.cluster.Member;
 import akka.cluster.MemberStatus;
 import akka.event.Logging;
 import akka.event.LoggingAdapter;
+import akka.cluster.ClusterEvent.MemberUp;
 import akka.remote.EndpointManager;
 import de.hpi.octopus.OctopusMaster;
 import de.hpi.octopus.actors.Profiler.RegistrationMessage;
@@ -29,6 +33,7 @@ public class Worker extends AbstractActor {
 	////////////////////////
 
 	public static final String DEFAULT_NAME = "worker";
+	private static List<Integer> sign_sequence = new ArrayList<>();
 
 	public static Props props() {
 		return Props.create(Worker.class);
@@ -43,7 +48,10 @@ public class Worker extends AbstractActor {
 	@SuppressWarnings("unused")
 	public static class PasswordMessage implements Serializable {
 		private static final long serialVersionUID = -7643194361868862396L;
-		private PasswordMessage() {}
+
+		private PasswordMessage() {
+		}
+
 		private String pwd_hash;
 		private String id;
 	}
@@ -119,8 +127,17 @@ public class Worker extends AbstractActor {
 		return receiveBuilder().match(CurrentClusterState.class, this::handle).match(MemberUp.class, this::handle)
 				.match(PasswordMessage.class, this::handle).match(LinearCombinationMessage.class, this::handle)
 				.match(GeneMessage.class, this::handle).match(HashMiningMessage.class, this::handle)
+				.match(MemberUp.class, this::handle)
 				.matchAny(object -> this.log.info("Received unknown message: \"{}\"", object.toString())).build();
 	}
+
+	private void register(Member member) {
+		if (member.hasRole(OctopusMaster.MASTER_ROLE))
+			this.getContext()
+				.actorSelection(member.address() + "/user/" + Profiler.DEFAULT_NAME)
+				.tell(new RegistrationMessage(), this.self());
+	}
+
 
 	private void handle(CurrentClusterState message) {
 		message.getMembers().forEach(member -> {
@@ -133,11 +150,6 @@ public class Worker extends AbstractActor {
 		this.register(message.member());
 	}
 
-	private void register(Member member) {
-		if (member.hasRole(OctopusMaster.MASTER_ROLE))
-			this.getContext().actorSelection(member.address() + "/user/" + Profiler.DEFAULT_NAME)
-					.tell(new RegistrationMessage(), this.self());
-	}
 
 	private void handle(PasswordMessage message) throws UnsupportedEncodingException, NoSuchAlgorithmException {
 		for (int i = 100000; i < 1000000; i++) {
@@ -150,6 +162,71 @@ public class Worker extends AbstractActor {
 		}
 		this.sender().tell(new Profiler.PasswordCompletionMessage("", "-1"), this.self());
 	}
+
+	private static boolean recursion(int pos, int n, int sum, int[] sequence, int baseSum, int[][] dp) {
+		if (pos == n) {
+			if (sum == baseSum) {
+				return true;
+			} else
+				return false;
+		}
+		if (dp[pos][sum] != -1) {
+			return dp[pos][sum] == 1;
+		}
+		boolean resultTakingPositive = recursion(pos + 1, n, sum + sequence[pos], sequence, baseSum, dp);
+		if (resultTakingPositive) {
+			Worker.sign_sequence.add(1);
+		}
+		boolean resultTakingNegative = recursion(pos + 1, n, sum - sequence[pos], sequence, baseSum, dp);
+		if (resultTakingNegative) {
+			Worker.sign_sequence.add(-1);
+		}
+		if (resultTakingNegative || resultTakingPositive) {
+			dp[pos][sum] = 1;
+		} else {
+			dp[pos][sum] = 0;
+		}
+
+		return dp[pos][sum] == 1;
+	}
+
+	/*
+	 * private void handle(LinearCombinationMessage message) {
+	 * 
+	 * 
+	 * int baseSum = 0; for (int pwd : message.passwords) { baseSum += pwd; }
+	 * 
+	 * // vector< vector<int> >dp(n, vector<int>(2*baseSum + 1, -1)); int[][] dp =
+	 * new int[message.passwords.length][baseSum]; Arrays.fill(dp, -1); boolean
+	 * possible = recursion(0, message.passwords.length, baseSum, message.passwords,
+	 * baseSum, dp); Collections.reverse(Worker.sign_sequence);
+	 * this.sender().tell(new Profiler.LinearCompletionMessage(possible,
+	 * Worker.sign_sequence), this.self()); // Worker.sign_sequence.toArray())); //
+	 * list.stream().mapToInt(i->i).toArray(); }
+	 */
+
+	/*
+	 * private void handle(LinearCombinationMessage message) {
+	 * Arrays.sort(message.passwords); int[] prefixes = new
+	 * int[message.passwords.length]; int sum = 0;
+	 * 
+	 * System.out.println(Arrays.toString(message.passwords));
+	 * 
+	 * System.out.println("\n");
+	 * 
+	 * for (int i = prefixes.length - 1; i >= 0; i--) { // default is substract if
+	 * (sum < 0) { sum += message.passwords[i]; prefixes[i] = 1; } else { sum -=
+	 * message.passwords[i]; prefixes[i] = -1; } System.out.println(sum); }
+	 * 
+	 * if (sum != 0) { System.out.println("\n\nchange default to addition"); //
+	 * change default to addition sum = 0; for (int i = prefixes.length - 1; i >= 0;
+	 * i--) { if (sum > 0) { sum -= message.passwords[i]; prefixes[i] = -1; } else {
+	 * sum += message.passwords[i]; prefixes[i] = 1; } System.out.println(sum); } }
+	 * 
+	 * if (sum == 0) { this.sender().tell(new Profiler.LinearCompletionMessage(true,
+	 * prefixes), this.self()); } else { this.sender().tell(new
+	 * Profiler.LinearCompletionMessage(false, null), this.self()); } }
+	 */
 
 	private void handle(LinearCombinationMessage message) {
 		int[] prefixes = new int[message.passwords.length];

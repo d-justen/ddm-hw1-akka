@@ -30,7 +30,7 @@ public class OctopusApp {
             switch (jCommander.getParsedCommand()) {
             case OctopusMaster.MASTER_ROLE:
                 OctopusMaster.start(ACTOR_SYSTEM_NAME, masterCommand.workers, masterCommand.host, masterCommand.port,
-                        masterCommand.input);
+                        masterCommand.input, masterCommand.slaves);
                 break;
             case OctopusSlave.SLAVE_ROLE:
                 OctopusSlave.start(ACTOR_SYSTEM_NAME, slaveCommand.workers, slaveCommand.host, slaveCommand.port,
@@ -57,6 +57,7 @@ public class OctopusApp {
         public static final int DEFAULT_SLAVE_PORT = 7879;
         public static final int DEFAULT_WORKERS = 4;
         public static final String DEFAULT_PATH = "students.csv";
+        public static final int NUMBER_OF_SLAVES = 0;
 
         @Parameter(names = { "-h", "--host" }, description = "this machine's host name or IP to bind against")
         String host = this.getDefaultHost();
@@ -88,6 +89,9 @@ public class OctopusApp {
 
         @Parameter(names = { "-i", "--input" }, description = "location of the input file", required = false)
         String input = DEFAULT_PATH;
+
+        @Parameter(names = {"-s", "--slaves"}, description = "number of slaves", required = false)
+        int slaves = NUMBER_OF_SLAVES;
     }
 
     @Parameters(commandDescription = "start a slave actor system")

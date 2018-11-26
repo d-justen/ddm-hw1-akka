@@ -23,8 +23,10 @@ import scala.util.control.Exception.Catch;
 public class OctopusMaster extends OctopusSystem {
 
 	public static final String MASTER_ROLE = "master";
+	public static int nrOfSlavesJoined = 0;
 
-	public static void start(String actorSystemName, int workers, String host, int port, String filepath) {
+	public static void start(String actorSystemName, int workers, String host, int port, String filepath,
+			int nrOfSlaves) {
 
 		final Config config = createConfiguration(actorSystemName, MASTER_ROLE, host, port, host, port);
 
@@ -41,11 +43,16 @@ public class OctopusMaster extends OctopusSystem {
 				for (int i = 0; i < workers; i++)
 					system.actorOf(Worker.props(), Worker.DEFAULT_NAME + i);
 
-				String[][] input_csv = readCSV_by_column(filepath);
-				if (input_csv != null) {
-					// https://stackoverflow.com/questions/18228846/actor-replying-to-non-actor
-					system.actorSelection("/user/" + Profiler.DEFAULT_NAME).tell(new Profiler.TaskMessage(input_csv),
-							ActorRef.noSender());
+				OctopusMaster.nrOfSlavesJoined++;
+				System.out.println("nr joined " + OctopusMaster.nrOfSlavesJoined);
+
+				if (nrOfSlaves == OctopusMaster.nrOfSlavesJoined) {
+					long startTime = System.currentTimeMillis();
+					String[][] input_csv = readCSV_by_column(filepath);
+					if (input_csv != null) {
+						system.actorSelection("/user/" + Profiler.DEFAULT_NAME)
+								.tell(new Profiler.TaskMessage(input_csv, nrOfSlaves, startTime), ActorRef.noSender());
+					}
 				}
 			}
 		});
@@ -61,7 +68,7 @@ public class OctopusMaster extends OctopusSystem {
 			BufferedReader buffRe = new BufferedReader(new FileReader(path));
 			String line = buffRe.readLine();
 			ArrayList<String[]> table = new ArrayList<>();
-			// boolean header = false; // not needed 
+			// boolean header = false; // not needed
 			// we do not need the names, as long as the csv is ordered
 			// ArrayList<String> name = new ArrayList<>();
 			ArrayList<String> hash = new ArrayList<>();

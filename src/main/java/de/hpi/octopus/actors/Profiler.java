@@ -8,6 +8,7 @@ import akka.actor.ActorRef;
 import akka.actor.Props;
 import akka.actor.Terminated;
 import akka.event.Logging;
+import de.hpi.octopus.actors.Profiler.RegistrationMessage;
 import akka.event.LoggingAdapter;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -44,6 +45,8 @@ public class Profiler extends AbstractActor {
 		}
 
 		private String[][] columns;
+		private int nrOfSlaves; 
+		private long startTime;
 	}
 
 	@Data
@@ -116,6 +119,8 @@ public class Profiler extends AbstractActor {
 	private boolean hashMiningStarted = false;
 	private long lastMax = 0;
 	private boolean solved = false;
+	private long startTime; 
+	private final Set<String> slaves = new HashSet<>();
 
 	private TaskMessage task;
 
@@ -144,26 +149,19 @@ public class Profiler extends AbstractActor {
 				.matchAny(object -> this.log.info("Received unknown message: \"{}\"", object.toString())).build();
 	}
 
-	private void handle(RegistrationMessage message) {
+/*	private void handle(RegistrationMessage message) {
 		this.context().watch(this.sender());
 
 		this.assign(this.sender());
 		this.log.info("Registered {}", this.sender());
-	}
+	}*/
 
-	private void handle(Terminated message) {
-		this.context().unwatch(message.getActor());
+	
 
-		if (!this.idleWorkers.remove(message.getActor())) {
-			Object work = this.busyWorkers.remove(message.getActor());
-			if (work != null) {
-				this.assign(work);
-			}
-		}
-		this.log.info("Unregistered {}", message.getActor());
-	}
+	private void startTask() {
+		TaskMessage message = this.task;  
+		this.startTime = message.startTime;
 
-	private void handle(TaskMessage message) {
 		System.out.println("Profiler handling TaskMessage");
 		if (this.task != null)
 			this.log.error("The profiler actor can process only one task in its current implementation!");
@@ -175,8 +173,8 @@ public class Profiler extends AbstractActor {
 		this.prefixes = new int[len];
 
 		for (int i = 0; i < len; i++) {
-			// this.assign(new Worker.PasswordMessage(message.columns[0][i], Integer.toString(i + 1)));
-			this.assign(new Worker.GeneMessage(message.columns[1], i + 1));
+			this.assign(new Worker.PasswordMessage(message.columns[0][i], Integer.toString(i + 1)));
+			// this.assign(new Worker.GeneMessage(message.columns[1], i + 1));
 		}
 	}
 
@@ -188,12 +186,16 @@ public class Profiler extends AbstractActor {
 		this.nrPasswords++;
 
 		if (this.passwords.length == this.nrPasswords)
+			System.out.println("Completed calculating all passwords!");
 			assignLinear();
 
 		this.assign(worker);
 	}
 
 	private void handle(LinearCompletionMessage message) {
+
+		// System.out.println(message.prefixes.toString());
+		
 		ActorRef worker = this.sender();
 		this.busyWorkers.remove(worker);
 
@@ -211,7 +213,14 @@ public class Profiler extends AbstractActor {
 			assignHashMining();
 		}
 
-		this.log.info("Completed: [{}]", message.solved);
+		if (message.solved) {
+			this.log.info("solved Linear Combination. Combination is:");
+			this.log.info(Arrays.toString(message.prefixes));
+		}
+		else {
+			this.log.info("unable to solve LinearCombination");
+		}
+
 		this.assign(worker);
 	}
 
@@ -235,7 +244,43 @@ public class Profiler extends AbstractActor {
 
 		this.log.info("Completed: [{},{},{}]", message.partner1, message.partner2, message.hash);
 		this.assign(worker);
+		System.out.println("Entire calculation took " + (this.startTime - System.currentTimeMillis()));
 	}
+
+	private void handle(RegistrationMessage message) {
+		this.context().watch(this.sender());
+		this.assign(this.sender());
+		String hostPort = this.sender().path().address().hostPort();
+		this.log.info("Registered {}, {}", this.sender(), hostPort);
+
+		if (!hostPort.equals(this.self().path().address().hostPort()) && slaves.add(hostPort))
+			log.info("Slave {} joined.", slaves.size());
+		if (task != null && slaves.size() == task.nrOfSlaves) startTask();
+	}
+	
+	private void handle(Terminated message) {
+		this.context().unwatch(message.getActor());
+		
+		if (!this.idleWorkers.remove(message.getActor())) {
+			Object work = this.busyWorkers.remove(message.getActor());
+			if (work != null) {
+				this.assign(work);
+			}
+		}		
+		this.log.info("Unregistered {}", message.getActor());
+	}
+
+	private void handle(TaskMessage message) {
+		if (this.task != null)
+			this.log.error("The profiler actor can process only one task in its current implementation!");
+
+		this.task = message;
+		if (task.nrOfSlaves == slaves.size()) startTask();
+	}
+
+
+
+
 
 	private void assign(Object work) {
 		ActorRef worker = this.idleWorkers.poll();
@@ -262,7 +307,6 @@ public class Profiler extends AbstractActor {
 	}
 
 	private void assignLinear() {
-
 		for (int i = 0; i < 100; i++) {
 			long newMin = lastMax + 10000000 * i;
 			long newMax = lastMax + 10000000 * (i + 1);

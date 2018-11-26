@@ -128,6 +128,7 @@ public class Profiler extends AbstractActor {
 	private long startTime;
 	private final Set<String> slaves = new HashSet<>();
 	private int hashedPartners = 0;
+	boolean task_stated = false;
 
 	private TaskMessage task;
 
@@ -155,6 +156,11 @@ public class Profiler extends AbstractActor {
 	}
 
 	private void startTask() {
+		if (this.task_stated) {
+			return;
+		}
+		this.task_stated = true;
+
 		TaskMessage message = this.task;
 		this.startTime = message.startTime;
 
@@ -193,7 +199,6 @@ public class Profiler extends AbstractActor {
 		}
 	}
 
-	
 	private void handle(LinearCompletionMessage message) {
 
 		ActorRef worker = this.sender();
@@ -218,7 +223,6 @@ public class Profiler extends AbstractActor {
 			this.prefixes = message.prefixes;
 			assignHashMining();
 		} else {
-			this.log.info("", message.solved);
 			this.assign(worker);
 		}
 	}
@@ -346,22 +350,25 @@ public class Profiler extends AbstractActor {
 
 		this.log.info("Start hash mining");
 	}
-
+	/*
 	private void report(Worker.PasswordMessage work) {
-		// this.log.info("UCC: {}", work.getHash());
+		this.log.info("UCC: {}", work.getHash());
 	}
 
 	private void split(Worker.PasswordMessage work) {
-		/*
-		 * String[] x = work.getHash();
-		 * 
-		 * int next = x.length + y.length;
-		 * 
-		 * if (next < this.task.getAttributes() - 1) { int[] xNew = Arrays.copyOf(x,
-		 * x.length + 1); xNew[x.length] = next; this.assign(new WorkMessage(xNew, y));
-		 * 
-		 * int[] yNew = Arrays.copyOf(y, y.length + 1); yNew[y.length] = next;
-		 * this.assign(new WorkMessage(x, yNew)); }
-		 */
-	}
+
+		String[] x = work.getHash();
+
+		int next = x.length + y.length;
+
+		if (next < this.task.getAttributes() - 1) {
+			int[] xNew = Arrays.copyOf(x, x.length + 1);
+			xNew[x.length] = next;
+			this.assign(new WorkMessage(xNew, y));
+
+			int[] yNew = Arrays.copyOf(y, y.length + 1);
+			yNew[y.length] = next;
+			this.assign(new WorkMessage(x, yNew));
+		}
+	}*/
 }

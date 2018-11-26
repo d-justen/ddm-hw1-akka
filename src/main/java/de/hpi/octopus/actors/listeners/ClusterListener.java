@@ -11,24 +11,13 @@ import akka.cluster.ClusterEvent.UnreachableMember;
 import de.hpi.octopus.messages.ShutdownMessage;
 import akka.event.Logging;
 import akka.event.LoggingAdapter;
-import akka.actor.PoisonPill;
 
 import de.hpi.octopus.actors.Reaper;
 
 
 public class ClusterListener extends AbstractActor {
 
-	////////////////////
-	// Reaper Pattern // 
-	////////////////////
-
-	private void handle(ShutdownMessage message) {
-		// We could write all primes to disk here
-		
-		this.getSelf().tell(PoisonPill.getInstance(), this.getSelf());
-	}
-
-
+	
 	////////////////////////
 	// Actor Construction //
 	////////////////////////
@@ -77,7 +66,6 @@ public class ClusterListener extends AbstractActor {
 		}).match(MemberRemoved.class, mRemoved -> {
 			this.log.info("Member is Removed: {}", mRemoved.member());
 		})
-		.match(ShutdownMessage.class, this::handle)
 		.match(MemberEvent.class, message -> {
 			this.log.info("ClusterListener received unknown message");
 		}).build();

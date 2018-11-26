@@ -28,29 +28,6 @@ public class Profiler extends AbstractActor {
 		this.listener = listener;
 	}
 
-	////////////////////
-	// Reaper Pattern //
-	////////////////////
-
-	@Override
-	public void preStart() throws Exception {
-		super.preStart();
-
-		// Register at this actor system's reaper
-		Reaper.watchWithDefaultReaper(this);
-	}
-
-	@Override
-	public void postStop() throws Exception {
-		super.postStop();
-
-		// If the master has stopped, it can also stop the listener
-		this.listener.tell(PoisonPill.getInstance(), this.getSelf());
-
-		// Log the stop event
-		this.log.info("Stopped Profiler");
-	}
-
 	////////////////////////
 	// Actor Construction //
 	////////////////////////
@@ -282,10 +259,14 @@ public class Profiler extends AbstractActor {
 		ActorRef worker = this.sender();
 		this.busyWorkers.remove(worker);
 
-		this.log.info("HashMining partner1:{}, partner2 {}, hash: {}]", message.partner1, message.partner2,
+		this.log.info("HashMining partner1:{}, partner2 {}, hash: {}", message.partner1, message.partner2,
 				message.hash);
 		this.assign(worker);
 		System.out.println("Entire calculation took " + (this.startTime - System.currentTimeMillis()));
+	
+		if (!busyWorkers.isEmpty())
+			busyWorkers.forEach((k, v) -> k.tell(PoisonPill.getInstance(), this.self()));
+		idleWorkers.forEach(e -> e.tell(PoisonPill.getInstance(), this.self()));
 	}
 
 	private void handle(RegistrationMessage message) {

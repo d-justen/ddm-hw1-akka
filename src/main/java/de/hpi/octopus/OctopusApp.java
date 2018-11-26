@@ -34,7 +34,7 @@ public class OctopusApp {
                     OctopusMaster.start(ACTOR_SYSTEM_NAME, masterCommand.workers, masterCommand.host, masterCommand.port, masterCommand.input, masterCommand.slaves);
                     break;
                 case OctopusSlave.SLAVE_ROLE:
-                    OctopusSlave.start(ACTOR_SYSTEM_NAME, slaveCommand.workers, slaveCommand.host, slaveCommand.port, slaveCommand.masterhost, slaveCommand.masterport);
+                    OctopusSlave.start(ACTOR_SYSTEM_NAME, slaveCommand.workers, slaveCommand.slavehost, slaveCommand.slaveport, slaveCommand.host, slaveCommand.port);
                     break;
                 default:
                     throw new AssertionError();
@@ -99,13 +99,13 @@ public class OctopusApp {
 
         @Override
         int getDefaultPort() {
-            return DEFAULT_SLAVE_PORT;
+            return DEFAULT_MASTER_PORT;
         }
 
-        @Parameter(names = {"-mp", "--masterport"}, description = "port of the master", required = false)
-        int masterport = DEFAULT_MASTER_PORT;
+        @Parameter(names = {"-sp", "--slaveport"}, description = "port of the slave", required = false)
+        int slaveport = DEFAULT_SLAVE_PORT;
 
-        @Parameter(names = {"-mh", "--masterhost"}, description = "host name or IP of the master", required = true)
-        String masterhost;
+        @Parameter(names = {"-sh", "--slavehost"}, description = "host name or IP of the slave", required = false)
+        String slavehost = this.getDefaultHost();
     }
 }

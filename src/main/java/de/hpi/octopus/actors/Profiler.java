@@ -153,6 +153,8 @@ public class Profiler extends AbstractActor {
 		if (!hostPort.equals(this.self().path().address().hostPort()) && slaves.add(hostPort))
 			log.info("Slave {} joined.", slaves.size());
 		if (task != null && slaves.size() == task.nrSlaves) startTask();
+
+        this.log.info("task {}, slaves {}", task, slaves.size());
 	}
 	
 	private void handle(Terminated message) {
@@ -179,6 +181,7 @@ public class Profiler extends AbstractActor {
 		ActorRef worker = this.sender();
 		this.busyWorkers.remove(worker);
 		passwords[Integer.parseInt(message.id) - 1] = Integer.parseInt(message.password);
+		this.log.info("Completed: [{},{}]", message.password, message.id);
 		nrPasswords++;
 
 		if (passwords.length == nrPasswords) assignLinear();
@@ -203,6 +206,7 @@ public class Profiler extends AbstractActor {
 			assignHashMining();
 		}
 
+		this.log.info("Completed: [{}]", message.solved);
 		this.assign(worker);
 	}
 
@@ -213,6 +217,7 @@ public class Profiler extends AbstractActor {
 		this.genePartners[message.partner1] = message.partner2;
 		this.nrGenePartners++;
 
+		this.log.info("Completed: [{},{}]", message.partner1, message.partner2);
 		this.assign(worker);
 
 		if (this.genePartners.length == this.nrGenePartners && this.solved) assignHashMining();
@@ -223,6 +228,7 @@ public class Profiler extends AbstractActor {
 		this.busyWorkers.remove(worker);
 
         this.hashes[message.partner1] = message.hash;
+		this.log.info("Completed: [{},{},{}]", message.partner1, message.partner2, message.hash);
 		hashedPartners++;
 		this.assign(worker);
 

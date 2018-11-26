@@ -48,7 +48,7 @@ public class OctopusMaster extends OctopusSystem {
 			//		.props(Props.create(Worker.class)), "router");
 			}
 		});
-		
+
 		try {
 			system.actorSelection("/user/" + Profiler.DEFAULT_NAME).tell(new Profiler.TaskMessage(readCSV(filepath), nrSlaves), ActorRef.noSender());
 		} catch (IOException e) {

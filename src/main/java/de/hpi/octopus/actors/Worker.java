@@ -70,8 +70,8 @@ public class Worker extends AbstractActor {
 		private GeneMessage() {
 		}
 
-		private int index;
 		private String[] dna_seqs;
+		private int index;
 	}
 
 	@Data
@@ -220,6 +220,7 @@ public class Worker extends AbstractActor {
 	}
 
 	private int longestOverlapPartner(int thisIndex, String[] sequences) {
+		thisIndex--; // index in csv starts at 1, not at 0
 		int bestOtherIndex = -1;
 		String bestOverlap = "";
 		for (int otherIndex = 0; otherIndex < sequences.length; otherIndex++) {
@@ -233,7 +234,7 @@ public class Worker extends AbstractActor {
 				bestOtherIndex = otherIndex;
 			}
 		}
-		return bestOtherIndex;
+		return bestOtherIndex + 1; // conert from 0 indexed to 1 indexed
 	}
 
 	private String longestOverlap(String str1, String str2) {

@@ -39,7 +39,10 @@ public class Profiler extends AbstractActor {
 	@SuppressWarnings("unused")
 	public static class TaskMessage implements Serializable {
 		private static final long serialVersionUID = -8330958742629706627L;
-		private TaskMessage() {}
+
+		private TaskMessage() {
+		}
+
 		private String[][] columns;
 	}
 
@@ -123,23 +126,22 @@ public class Profiler extends AbstractActor {
 	@Override
 	public Receive createReceive() {
 		/*
+		 * return receiveBuilder().match(RegistrationMessage.class,
+		 * this::handle).match(Terminated.class, this::handle) .match(TaskMessage.class,
+		 * this::handle).match(PasswordCompletionMessage.class, this::handle)
+		 * .match(LinearCompletionMessage.class,
+		 * this::handle).match(GeneCompletionMessage.class, this::handle)
+		 * .match(HashMiningCompletionMessage.class, this::handle) .matchAny(object ->
+		 * this.log.info("Received unknown message: \"{}\"",
+		 * object.toString())).build();
+		 */
 		return receiveBuilder().match(RegistrationMessage.class, this::handle).match(Terminated.class, this::handle)
-				.match(TaskMessage.class, this::handle).match(PasswordCompletionMessage.class, this::handle)
-				.match(LinearCompletionMessage.class, this::handle).match(GeneCompletionMessage.class, this::handle)
-				.match(HashMiningCompletionMessage.class, this::handle)
-				.matchAny(object -> this.log.info("Received unknown message: \"{}\"", object.toString())).build();
-		*/
-		return receiveBuilder()
-				.match(RegistrationMessage.class, this::handle)
-				.match(Terminated.class, this::handle)
 				.match(TaskMessage.class, this::handle)
-				// .match(TaskMessage.class, this::handle).match(PasswordCompletionMessage.class, this::handle)
 				.match(PasswordCompletionMessage.class, this::handle)
 				.match(LinearCompletionMessage.class, this::handle)
 				.match(GeneCompletionMessage.class, this::handle)
 				.match(HashMiningCompletionMessage.class, this::handle)
-				.matchAny(object -> this.log.info("Received unknown message: \"{}\"", object.toString()))
-				.build();
+				.matchAny(object -> this.log.info("Received unknown message: \"{}\"", object.toString())).build();
 	}
 
 	private void handle(RegistrationMessage message) {
@@ -173,10 +175,8 @@ public class Profiler extends AbstractActor {
 		this.prefixes = new int[len];
 
 		for (int i = 0; i < len; i++) {
-			// password message does not seem to work
-			// Worker can not really handle it
-			this.assign(new Worker.PasswordMessage(message.columns[0][i], Integer.toString(i + 1)));
-			// this.assign(new Worker.GeneMessage(message.columns[2][i]));
+			// this.assign(new Worker.PasswordMessage(message.columns[0][i], Integer.toString(i + 1)));
+			this.assign(new Worker.GeneMessage(message.columns[1], i + 1));
 		}
 	}
 
@@ -219,7 +219,7 @@ public class Profiler extends AbstractActor {
 		ActorRef worker = this.sender();
 		this.busyWorkers.remove(worker);
 
-		this.genePartners[message.partner1] = message.partner2;
+		this.genePartners[message.partner1 - 1] = message.partner2 - 1;
 		this.nrGenePartners++;
 
 		this.log.info("Completed: [{},{}]", message.partner1, message.partner2);

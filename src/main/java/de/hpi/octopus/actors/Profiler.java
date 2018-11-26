@@ -85,8 +85,9 @@ public class Profiler extends AbstractActor {
 	private final Set<String> slaves = new HashSet<>();
 
 	private int[] passwords;
-	private int[] genePartners;
 	private int[] prefixes;
+    private int[] genePartners;
+    private String[] hashes;
 	private int nrPasswords = 0;
 	private int nrGenePartners = 0;
 	private boolean hashMiningStarted = false;
@@ -129,6 +130,7 @@ public class Profiler extends AbstractActor {
 			this.passwords = new int[task.table.length];
 			this.genePartners = new int[task.table.length];
 			this.prefixes = new int[task.table.length];
+            this.hashes = new String[task.table.length];
 			ArrayList<String> dna_seqs = new ArrayList<>();
 
 			for (int i = 0; i < task.table.length; i++) {
@@ -177,7 +179,6 @@ public class Profiler extends AbstractActor {
 		ActorRef worker = this.sender();
 		this.busyWorkers.remove(worker);
 		passwords[Integer.parseInt(message.id) - 1] = Integer.parseInt(message.password);
-		this.log.info("Completed: [{},{}]", message.password, message.id);
 		nrPasswords++;
 
 		if (passwords.length == nrPasswords) assignLinear();
@@ -202,7 +203,6 @@ public class Profiler extends AbstractActor {
 			assignHashMining();
 		}
 
-		this.log.info("Completed: [{}]", message.solved);
 		this.assign(worker);
 	}
 
@@ -213,7 +213,6 @@ public class Profiler extends AbstractActor {
 		this.genePartners[message.partner1] = message.partner2;
 		this.nrGenePartners++;
 
-		this.log.info("Completed: [{},{}]", message.partner1, message.partner2);
 		this.assign(worker);
 
 		if (this.genePartners.length == this.nrGenePartners && this.solved) assignHashMining();
@@ -223,12 +222,16 @@ public class Profiler extends AbstractActor {
 		ActorRef worker = this.sender();
 		this.busyWorkers.remove(worker);
 
-		this.log.info("Completed: [{},{},{}]", message.partner1, message.partner2, message.hash);
+        this.hashes[message.partner1] = message.hash;
 		hashedPartners++;
 		this.assign(worker);
 
 		if (hashedPartners == nrGenePartners) {
 			this.log.info("All tasks completed in {} ms", System.currentTimeMillis() - startTime);
+
+			for (int i = 0; i < this.passwords.length; i++){
+                this.log.info("ID: " + i + ", Password: {}, Prefix: {}, Partner: {}, Hash: {}", this.passwords[i], this.prefixes[i], this.genePartners[i], this.hashes[i]);
+            }
 
 			if (!busyWorkers.isEmpty())
 				busyWorkers.forEach((k, v) -> k.tell(PoisonPill.getInstance(), this.self()));

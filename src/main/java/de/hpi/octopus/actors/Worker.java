@@ -26,6 +26,8 @@ import de.hpi.octopus.OctopusMaster;
 import de.hpi.octopus.actors.Profiler.RegistrationMessage;
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import de.hpi.octopus.actors.SparseMatrix;
+
 
 public class Worker extends AbstractActor {
 
@@ -163,9 +165,8 @@ public class Worker extends AbstractActor {
 		this.sender().tell(new Profiler.PasswordCompletionMessage("", "-1"), this.self());
 	}
 
-	private static boolean recursion(int pos, int n, int sum, int[] sequence, int baseSum, List<List<Integer>> dp) {
+	private static boolean recursion(int pos, int n, int sum, int[] sequence, int baseSum, SparseMatrix<Integer> dp) {
 		
-		System.out.println(4);
 		if (pos == n) {
 			if (sum == baseSum) {
 				return true;
@@ -174,36 +175,21 @@ public class Worker extends AbstractActor {
 			}
 		}
 
-		System.out.println(5);
-		if (dp.get(pos).get(sum) != -1) {
-			return dp.get(pos).set(sum, 1) == 1;
+		if (dp.get(pos, sum) != null) {
+			return true;
 		}
 
-		System.out.println(6);
 		boolean resultTakingPositive = recursion(pos + 1, n, sum + sequence[pos], sequence, baseSum, dp);
 		boolean resultTakingNegative = recursion(pos + 1, n, sum - sequence[pos], sequence, baseSum, dp);
-		System.out.println(7);
 		if (resultTakingPositive || resultTakingNegative) {
-			System.out.println(8);
-			System.out.println("sum: " + sum);
-			System.out.println("pos: "  + pos);
-			System.out.println("len: " + dp.size());
-			dp.get(pos).set(sum, 1);
-			System.out.println(9);
+			dp.set(pos, sum, 1);
 		} else {
-			System.out.println(10);
-			System.out.println("sum: " + sum);
-			System.out.println("pos: "  + pos);
-			System.out.println("len: " + dp.size());
-			dp.get(pos).set(sum, 0);
-			System.out.println(11);
+			dp.set(pos, sum, null);
 		}
-
-		System.out.println(12);
-		return dp.get(pos).get(sum) == 1;
+		return dp.get(pos, sum) != null;
 	}
 
-	void printSolution(int pos, int n, int sum, int[] sequence, int baseSum, List<List<Integer>> dp) {
+	void printSolution(int pos, int n, int sum, int[] sequence, int baseSum, SparseMatrix<Integer> dp) {
 		if (pos == n) {
 			return;
 		}
@@ -220,23 +206,12 @@ public class Worker extends AbstractActor {
 	private void handle(LinearCombinationMessage message) {
 		int[] sequence = message.passwords;
 		int baseSum = IntStream.of(sequence).sum();
-		int n = sequence.length;
+		int n = sequence.length - 1;
 
-		// int[][] dp = new int[n][2 * baseSum + 1];
-
-		System.out.println(0);
-
-		List<List<Integer>> dp = new ArrayList<List<Integer>>(n);
-
-		System.out.println(1);
-
-		for (int i = 0; i < n ; i ++){
-			// List<Integer> list = Collections.nCopies(2 * baseSum, -1);
-			// dp.add(list);
-			dp.add(new ArrayList<>(Collections.nCopies(2 * baseSum, -1)));
-		}
-
-		System.out.println(3);
+		// List<List<Integer>> dp = new ArrayList<List<Integer>>(n);
+		System.out.println("baseSum is " + baseSum);
+		// try to find it in the first 500k combinations or give up
+		SparseMatrix<Integer> dp = new SparseMatrix<Integer>(n, 2 * baseSum);		
 
 		if (recursion(0, n, baseSum, sequence, baseSum, dp)) { // if possible to make sum 0 then
 			this.log.info("the following signs have to be assigned: ");
@@ -261,7 +236,7 @@ public class Worker extends AbstractActor {
 	 * this.sender().tell(new Profiler.LinearCompletionMessage(false, null),
 	 * this.self()); }
 	 */
-
+ 
 	private void handle(GeneMessage message) {
 		int partner = longestOverlapPartner(message.index, message.dna_seqs);
 
